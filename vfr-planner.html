@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VFR Diversion Planner</title>
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://tile.openstreetmap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --sky:#F7FAFC; --panel:#FFFFFF; --ink:#17233A; --muted:#5E6A7D;
+    --line:#D8E0EA; --soft:#EDF3F8; --blue:#245C9E; --cyan:#1D9FB8;
+    --green:#317A50; --red:#B33A3A; --magenta:#A33EB5;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--sky);color:var(--ink);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px;line-height:1.45;
+  }
+  .app{min-height:100%;display:grid;grid-template-rows:auto 1fr}
+  header{padding:20px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+  h1{margin:0;font-size:30px;letter-spacing:0;color:#17345C}
+  .sub{margin:4px 0 0;color:var(--muted)}
+  main{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);min-height:0}
+  aside{padding:20px;border-right:1px solid var(--line);background:var(--panel);overflow:auto}
+  .map-wrap{position:relative;min-height:520px}
+  #map{position:absolute;inset:0;background:#DDE7EF}
+  .card{border:1px solid var(--line);background:var(--panel);padding:16px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid .wide{grid-column:1 / -1}
+  label{display:block;font-size:14px;font-weight:650;color:var(--muted);margin-bottom:6px}
+  input{
+    width:100%;border:1px solid var(--line);background:var(--soft);padding:12px;
+    font:700 20px/1 Inter,sans-serif;color:var(--ink);text-transform:uppercase;
+  }
+  input:focus{outline:3px solid rgba(36,92,158,.22);border-color:var(--blue)}
+  button{
+    width:100%;border:0;background:var(--blue);color:white;padding:13px 16px;
+    font:700 16px/1 Inter,sans-serif;cursor:pointer;margin-top:14px;
+  }
+  button:hover{background:#1E4D84}
+  button.secondary{background:#EEF6FF;color:var(--blue);border:1px solid rgba(36,92,158,.25)}
+  button.secondary:hover{background:#DDEEFF}
+  .status{font-size:14px;color:var(--muted);margin-top:10px;min-height:20px}
+  .status.bad{color:var(--red);font-weight:650}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .stat{border:1px solid var(--line);background:var(--soft);padding:12px}
+  .stat .k{font-size:13px;color:var(--muted)}
+  .stat .v{font-size:22px;font-weight:750;margin-top:2px;color:#17345C}
+  .airport{border-top:1px solid var(--line);padding:13px 0}
+  .airport:first-child{border-top:0;padding-top:0}
+  .airport h3{margin:0 0 3px;font-size:18px;color:var(--blue)}
+  .airport p{margin:0;color:var(--muted)}
+  .airport b{color:var(--ink)}
+  .airport-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0}
+  .mini{background:var(--soft);border:1px solid var(--line);padding:8px}
+  .mini .k{display:block;font-size:12px;color:var(--muted)}
+  .mini .v{display:block;font-size:16px;font-weight:750;color:var(--ink);margin-top:1px}
+  .wind-mini .v{color:var(--blue)}
+  .freqs{display:grid;gap:5px;margin-top:8px}
+  .freq{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:5px;color:var(--muted)}
+  .freq:first-child{border-top:0;padding-top:0}
+  .freq b{font-variant-numeric:tabular-nums}
+  .small{font-size:13px;color:var(--muted);margin:12px 0 0}
+  .source{font-size:13px;color:var(--muted)}
+  .green{color:var(--green)}
+  .red{color:var(--red)}
+  .map-key{position:absolute;left:12px;bottom:24px;z-index:420;background:rgba(255,255,255,.92);
+    border:1px solid rgba(23,35,58,.18);padding:8px 10px;font-size:13px;color:var(--muted)}
+  .key-line{display:flex;align-items:center;gap:7px;margin-top:3px}
+  .key-line:first-child{margin-top:0}
+  .key-ring{width:20px;height:12px;border:2px solid;border-radius:50%}
+  .key-ring.blue{border-color:var(--blue)}
+  .key-ring.magenta{border-color:var(--magenta)}
+  .key-arrow{color:var(--blue);font-size:20px;font-weight:900;line-height:1}
+  .key-star{color:var(--red);font-size:18px;font-weight:900;line-height:1}
+  .wind-marker{background:transparent;border:0}
+  .wind-badge{
+    display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+    color:var(--blue);background:rgba(255,255,255,.95);border:2px solid rgba(36,92,158,.42);
+    padding:4px 7px;font:800 13px/1 Inter,sans-serif;
+    box-shadow:0 1px 4px rgba(23,35,58,.18);
+  }
+  .wind-arrow{
+    display:inline-block;font-size:26px;line-height:1;color:var(--blue);
+    text-shadow:0 1px 2px white,0 0 4px white;transform-origin:center;
+  }
+  .traffic-star{
+    color:var(--red);font-size:27px;font-weight:900;line-height:1;
+    text-shadow:0 1px 3px white,0 0 5px white;
+  }
+  .leaflet-tooltip.airport-label{
+    background:white;border:1px solid rgba(23,35,58,.2);box-shadow:none;
+    color:var(--ink);font-weight:800;letter-spacing:0;
+  }
+  .leaflet-tooltip.airport-label::before{display:none}
+  .leaflet-tooltip.airspace-label{
+    background:rgba(255,255,255,.94);border:1px solid rgba(23,35,58,.18);box-shadow:none;
+    color:var(--ink);font-weight:750;font-size:12px;line-height:1.3;
+  }
+  .leaflet-tooltip.airspace-label::before{display:none}
+  .leaflet-tooltip.traffic-label{
+    background:white;border:1px solid rgba(179,58,58,.35);box-shadow:none;
+    color:var(--ink);font-weight:750;font-size:12px;line-height:1.35;
+  }
+  .leaflet-tooltip.traffic-label::before{display:none}
+  @media (max-width:860px){
+    main{grid-template-columns:1fr;grid-template-rows:auto minmax(520px,1fr)}
+    aside{border-right:0;border-bottom:1px solid var(--line)}
+    .map-wrap{min-height:560px}
+  }
+  @media (max-width:480px){
+    header{padding:16px}
+    h1{font-size:25px}
+    aside{padding:14px}
+    .grid,.stats{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>VFR Diversion Planner</h1>
+    <p class="sub">Direct route, nearby diversion airports, and quick distance checks.</p>
+  </header>
+  <main>
+    <aside>
+      <section class="card">
+        <div class="grid">
+          <div>
+            <label for="fromCode">From</label>
+            <input id="fromCode" value="KPHX" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label for="toCode">To</label>
+            <input id="toCode" value="KLAS" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="wide">
+            <label for="cruiseSpeed">Cruise speed (kt)</label>
+            <input id="cruiseSpeed" value="120" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="wide">
+            <label for="plannedAltitude">Planned altitude (ft MSL)</label>
+            <input id="plannedAltitude" value="6500" inputmode="numeric" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <button id="planBtn">Plan route</button>
+        <button class="secondary" id="trafficBtn" type="button">Start live traffic</button>
+        <div class="status" id="status">Loading airport data...</div>
+        <div class="status" id="trafficStatus">Traffic off.</div>
+      </section>
+
+      <section class="card">
+        <div class="stats">
+          <div class="stat"><div class="k">Route distance</div><div class="v" id="routeDistance">--</div></div>
+          <div class="stat"><div class="k">Track</div><div class="v" id="routeTrack">--</div></div>
+          <div class="stat"><div class="k">Route time</div><div class="v" id="routeTime">--</div></div>
+        </div>
+        <p class="small" id="routeName">Enter ICAO, IATA, GPS, or local airport codes.</p>
+      </section>
+
+      <section class="card">
+        <label>Airport radio and altitude</label>
+        <div id="airportDetails"></div>
+      </section>
+
+      <section class="card">
+        <label>Diversion options</label>
+        <div id="diversions"></div>
+        <p class="source" id="sourceNote">Airport data and frequencies: public OurAirports CSV. Wind: Open-Meteo current wind. Traffic: OpenSky state vectors. Verify current chart/AFD and traffic sources before flight.</p>
+      </section>
+    </aside>
+    <section class="map-wrap" aria-label="Route map">
+      <div id="map"></div>
+      <div class="map-key">
+        <div class="key-line"><span class="key-ring blue"></span><span>Controlled estimate</span></div>
+        <div class="key-line"><span class="key-ring magenta"></span><span>VFR vicinity estimate</span></div>
+        <div class="key-line"><span class="key-arrow">&#8593;</span><span>Airport wind</span></div>
+        <div class="key-line"><span class="key-star">&#9733;</span><span>Traffic +/-500 ft</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var AIRPORTS_URL = "https://davidmegginson.github.io/ourairports-data/airports.csv";
+  var FREQS_URL = "https://davidmegginson.github.io/ourairports-data/airport-frequencies.csv";
+  var TRAFFIC_URL = "https://opensky-network.org/api/states/all";
+  var WIND_URL = "https://api.open-meteo.com/v1/forecast";
+  var FALLBACK = [
+    ["KPHX","PHX","Phoenix Sky Harbor Intl","Phoenix","US","large_airport",33.4343,-112.0116,1135],
+    ["KLAS","LAS","Harry Reid Intl","Las Vegas","US","large_airport",36.0801,-115.1522,2181],
+    ["KGCN","GCN","Grand Canyon National Park","Grand Canyon","US","medium_airport",35.9524,-112.1470,6609],
+    ["KPGA","PGA","Page Municipal","Page","US","medium_airport",36.9261,-111.4483,4316],
+    ["KFLG","FLG","Flagstaff Pulliam","Flagstaff","US","medium_airport",35.1385,-111.6712,7015],
+    ["KIGM","IGM","Kingman","Kingman","US","medium_airport",35.2595,-113.9380,3449],
+    ["KBVU","BVU","Boulder City Municipal","Boulder City","US","medium_airport",35.9475,-114.8611,2203],
+    ["KEED","EED","Needles","Needles","US","medium_airport",34.7663,-114.6233,983],
+    ["KHII","HII","Lake Havasu City","Lake Havasu City","US","medium_airport",34.5711,-114.3583,783],
+    ["KPRC","PRC","Prescott Regional","Prescott","US","medium_airport",34.6545,-112.4196,5045]
+  ].map(function(r){ return makeAirport(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]); });
+  var FALLBACK_FREQS = [
+    ["KPHX","ATIS","ATIS",127.575],["KPHX","GND","Ground",119.75],["KPHX","TWR","Tower",120.9],
+    ["KLAS","ATIS","ATIS",132.4],["KLAS","GND","Ground",121.1],["KLAS","TWR","Tower",119.9],
+    ["KGCN","ATIS","ATIS",119.175],["KGCN","CTAF","Airport radio",120.9],
+    ["KPGA","ASOS","Weather",118.625],["KPGA","CTAF","Airport radio",122.8],
+    ["KFLG","ATIS","ATIS",125.8],["KFLG","GND","Ground",121.9],["KFLG","TWR","Tower",134.55],
+    ["KIGM","AWOS","Weather",119.025],["KIGM","CTAF","Airport radio",123.0],
+    ["KBVU","AWOS","Weather",118.375],["KBVU","CTAF","Airport radio",122.7],
+    ["KEED","ASOS","Weather",118.525],["KEED","CTAF","Airport radio",122.8],
+    ["KHII","AWOS","Weather",119.925],["KHII","CTAF","Airport radio",122.8],
+    ["KPRC","ATIS","ATIS",127.2],["KPRC","GND","Ground",121.7],["KPRC","TWR","Tower",125.3]
+  ];
+
+  var airports = FALLBACK.slice(), airportIndex = new Map(), frequencyIndex = new Map(), map, layers = [];
+  var trafficLayers = [], trafficTimer = null, trafficActive = false, currentRoute = null;
+  var windLayers = [], windTimer = null, windIndex = new Map(), currentPlan = null, windRequestId = 0;
+  var fromEl = document.getElementById("fromCode");
+  var toEl = document.getElementById("toCode");
+  var speedEl = document.getElementById("cruiseSpeed");
+  var altitudeEl = document.getElementById("plannedAltitude");
+  var button = document.getElementById("planBtn");
+  var trafficBtn = document.getElementById("trafficBtn");
+  var statusEl = document.getElementById("status");
+  var trafficStatusEl = document.getElementById("trafficStatus");
+
+  function makeAirport(ident, iata, name, city, country, type, lat, lon, elevation){
+    return {
+      ident:String(ident || "").toUpperCase(),
+      iata:String(iata || "").toUpperCase(),
+      name:name || "Unnamed airport",
+      city:city || "",
+      country:country || "",
+      type:type || "",
+      lat:Number(lat), lon:Number(lon),
+      elevation:isFinite(Number(elevation)) ? Number(elevation) : null
+    };
+  }
+  function makeFrequency(ident, type, description, mhz){
+    return {ident:String(ident || "").toUpperCase(), type:String(type || "").toUpperCase(),
+      description:description || "", mhz:Number(mhz)};
+  }
+  function csvRows(text){
+    var rows = [], row = [], cell = "", quoted = false;
+    for (var i = 0; i < text.length; i++){
+      var c = text[i], n = text[i + 1];
+      if (quoted && c === '"' && n === '"'){ cell += '"'; i++; }
+      else if (c === '"'){ quoted = !quoted; }
+      else if (!quoted && c === ","){ row.push(cell); cell = ""; }
+      else if (!quoted && (c === "\n" || c === "\r")){
+        if (c === "\r" && n === "\n") i++;
+        row.push(cell); rows.push(row); row = []; cell = "";
+      } else cell += c;
+    }
+    if (cell || row.length){ row.push(cell); rows.push(row); }
+    return rows;
+  }
+  function indexAirports(list){
+    airportIndex = new Map();
+    list.forEach(function(a){
+      [a.ident, a.iata].forEach(function(code){ if (code) airportIndex.set(code, a); });
+    });
+  }
+  function indexFrequencies(list){
+    frequencyIndex = new Map();
+    list.forEach(function(f){
+      if (!f.ident || !isFinite(f.mhz)) return;
+      if (!frequencyIndex.has(f.ident)) frequencyIndex.set(f.ident, []);
+      frequencyIndex.get(f.ident).push(f);
+    });
+  }
+  function loadAirports(){
+    indexAirports(airports);
+    fetch(AIRPORTS_URL, {cache:"force-cache"}).then(function(r){
+      if (!r.ok) throw new Error("airport data unavailable");
+      return r.text();
+    }).then(function(text){
+      var rows = csvRows(text), head = rows.shift(), index = {};
+      head.forEach(function(name, i){ index[name] = i; });
+      airports = rows.map(function(r){
+        return makeAirport(r[index.ident], r[index.iata_code], r[index.name],
+          r[index.municipality], r[index.iso_country], r[index.type],
+          r[index.latitude_deg], r[index.longitude_deg], r[index.elevation_ft]);
+      }).filter(function(a){
+        return isFinite(a.lat) && isFinite(a.lon) && /airport$/.test(a.type) &&
+          a.ident && a.type !== "closed";
+      });
+      indexAirports(airports);
+      status("Loaded " + airports.length.toLocaleString("en-US") + " airports.", false);
+      plan();
+    }).catch(function(){
+      status("Using built-in sample airports. Internet data did not load.", true);
+      plan();
+    });
+  }
+  function loadFrequencies(){
+    indexFrequencies(FALLBACK_FREQS.map(function(r){ return makeFrequency(r[0], r[1], r[2], r[3]); }));
+    fetch(FREQS_URL, {cache:"force-cache"}).then(function(r){
+      if (!r.ok) throw new Error("frequency data unavailable");
+      return r.text();
+    }).then(function(text){
+      var rows = csvRows(text), head = rows.shift(), index = {};
+      head.forEach(function(name, i){ index[name] = i; });
+      indexFrequencies(rows.map(function(r){
+        return makeFrequency(r[index.airport_ident], r[index.type], r[index.description], r[index.frequency_mhz]);
+      }));
+      plan();
+    }).catch(function(){ plan(); });
+  }
+  function status(text, bad){
+    statusEl.textContent = text;
+    statusEl.className = bad ? "status bad" : "status";
+  }
+  function trafficStatus(text, bad){
+    trafficStatusEl.textContent = text;
+    trafficStatusEl.className = bad ? "status bad" : "status";
+  }
+  function rad(d){ return d * Math.PI / 180; }
+  function deg(r){ return r * 180 / Math.PI; }
+  function nmBetween(a, b){
+    var R = 3440.065, p1 = rad(a.lat), p2 = rad(b.lat);
+    var dp = rad(b.lat - a.lat), dl = rad(b.lon - a.lon);
+    var h = Math.sin(dp/2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+  function bearing(a, b){
+    var y = Math.sin(rad(b.lon-a.lon)) * Math.cos(rad(b.lat));
+    var x = Math.cos(rad(a.lat))*Math.sin(rad(b.lat)) -
+      Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lon-a.lon));
+    return (deg(Math.atan2(y, x)) + 360) % 360;
+  }
+  function interpolate(a, b, f){
+    return {lat:a.lat + (b.lat - a.lat) * f, lon:a.lon + (b.lon - a.lon) * f};
+  }
+  function distanceToSegmentNm(p, a, b){
+    var abLat = b.lat - a.lat, abLon = b.lon - a.lon;
+    var apLat = p.lat - a.lat, apLon = p.lon - a.lon;
+    var denom = abLat * abLat + abLon * abLon || 1;
+    var f = Math.max(0, Math.min(1, (apLat * abLat + apLon * abLon) / denom));
+    var nearest = interpolate(a, b, f);
+    return {nm:nmBetween(p, nearest), fraction:f, nearest:nearest};
+  }
+  function codeOf(a){ return a.iata || a.ident; }
+  function cruiseSpeed(){
+    var speed = parseFloat(String(speedEl.value).replace(/[^0-9.\-]/g, ""));
+    return isFinite(speed) && speed > 0 ? speed : 0;
+  }
+  function plannedAltitude(){
+    var altitude = parseFloat(String(altitudeEl.value).replace(/[^0-9.\-]/g, ""));
+    return isFinite(altitude) && altitude > 0 ? altitude : 0;
+  }
+  function formatTime(hours){
+    if (!isFinite(hours) || hours <= 0) return "--";
+    var mins = Math.round(hours * 60), h = Math.floor(mins / 60), m = mins % 60;
+    return h > 0 ? h + "h " + String(m).padStart(2, "0") + "m" : m + " min";
+  }
+  function timeForNm(nm, speed){ return speed > 0 ? formatTime(nm / speed) : "--"; }
+  function feet(n){ return isFinite(n) ? Math.round(n).toLocaleString("en-US") + " ft" : "--"; }
+  function patternAltitude(a){ return isFinite(a.elevation) ? a.elevation + 1000 : null; }
+  function windText(a){
+    var wind = windIndex.get(a.ident);
+    if (!wind) return "Loading...";
+    if (wind.error) return "Unavailable";
+    return Math.round(wind.direction) + " deg / " + Math.round(wind.speed) + " kt";
+  }
+  function frequencyLabel(f){
+    var type = f.type;
+    if (type === "ATIS") return "ATIS";
+    if (type === "GND") return "Ground";
+    if (type === "TWR") return "Tower";
+    if (["CTAF","UNIC","UNCM","RDO","A/G","INFO","AFIS"].indexOf(type) !== -1) return "Airport radio";
+    return "";
+  }
+  function radioList(a){
+    var wanted = {}, freqs = frequencyIndex.get(a.ident) || [];
+    freqs.forEach(function(f){
+      var label = frequencyLabel(f);
+      if (label && !wanted[label]) wanted[label] = f;
+    });
+    return ["ATIS","Ground","Tower","Airport radio"].map(function(label){
+      return wanted[label] ? {label:label, mhz:wanted[label].mhz} : null;
+    }).filter(Boolean);
+  }
+  function hasRadio(a, label){ return radioList(a).some(function(f){ return f.label === label; }); }
+  function nmToMeters(nm){ return nm * 1852; }
+  function airspaceEstimate(a){
+    var towered = hasRadio(a, "Tower") || hasRadio(a, "Ground");
+    if (a.type === "large_airport"){
+      return [{kind:"Terminal core", radius:5, min:"Surface", max:"5,000 ft MSL", color:"#245C9E", fill:"#245C9E"},
+              {kind:"Outer shelf", radius:10, min:"5,000 ft MSL", max:"10,000 ft MSL", color:"#245C9E", fill:"#245C9E"}];
+    }
+    if (towered){
+      return [{kind:"Towered surface area", radius:4, min:"Surface",
+        max:feet(isFinite(a.elevation) ? a.elevation + 2500 : null), color:"#245C9E", fill:"#245C9E", dash:"8 6"}];
+    }
+    if (a.type === "medium_airport"){
+      return [{kind:"Airport vicinity", radius:5, min:"700/1,200 ft AGL", max:"17,999 ft MSL",
+        color:"#A33EB5", fill:"#A33EB5", dash:"4 6"}];
+    }
+    return [{kind:"VFR vicinity", radius:3, min:"700/1,200 ft AGL", max:"17,999 ft MSL",
+      color:"#A33EB5", fill:"#A33EB5", dash:"4 6"}];
+  }
+  function drawAirspaceRings(from, to, diversions){
+    var points = [{airport:from}].concat(diversions.map(function(d){ return {airport:d.airport}; }), [{airport:to}]);
+    points.forEach(function(p){
+      var a = p.airport;
+      airspaceEstimate(a).forEach(function(ring){
+        addLayer(L.circle([a.lat, a.lon], {
+          radius:nmToMeters(ring.radius), color:ring.color, weight:2.4,
+          dashArray:ring.dash || null, fillColor:ring.fill, fillOpacity:.045, opacity:.82
+        }).bindTooltip(
+          esc(codeOf(a) + " " + ring.kind) + '<br><span class="green">Min ' + esc(ring.min) +
+          '</span> <span class="red">Max ' + esc(ring.max) + '</span>',
+          {permanent:false, sticky:true, className:"airspace-label"}
+        ));
+      });
+    });
+  }
+  function airportBlock(a, heading, extra){
+    var radios = radioList(a);
+    return '<div class="airport"><h3>' + esc(heading) + ' ' + codeOf(a) + '</h3>' +
+      '<p><b>' + esc(a.name) + '</b></p>' +
+      '<p>' + esc([a.city, a.country].filter(Boolean).join(", ")) + '</p>' +
+      '<div class="airport-meta">' +
+      '<div class="mini"><span class="k">Field elevation</span><span class="v">' + feet(a.elevation) + '</span></div>' +
+      '<div class="mini"><span class="k">Downwind MSL</span><span class="v">' + feet(patternAltitude(a)) + '</span></div>' +
+      '<div class="mini wind-mini"><span class="k">Wind</span><span class="v">' + esc(windText(a)) + '</span></div>' +
+      '</div>' +
+      (extra || "") +
+      '<div class="freqs">' + (radios.length ? radios.map(function(f){
+        return '<div class="freq"><span>' + esc(f.label) + '</span><b>' +
+          f.mhz.toFixed(3).replace(/0+$/,"").replace(/\.$/,"") + '</b></div>';
+      }).join("") : '<p class="small">No tower, ground, ATIS, or airport radio frequency found.</p>') +
+      '</div></div>';
+  }
+  function findDiversions(from, to){
+    var direct = nmBetween(from, to);
+    var maxOffRoute = Math.max(25, Math.min(90, direct * 0.25));
+    var candidates = airports.filter(function(a){
+      return a !== from && a !== to && isFinite(a.lat) && isFinite(a.lon);
+    }).map(function(a){
+      var d = distanceToSegmentNm(a, from, to);
+      var typePenalty = a.type === "large_airport" ? 0 : a.type === "medium_airport" ? 8 : 18;
+      return {airport:a, offRoute:d.nm, fraction:d.fraction, nearest:d.nearest, typePenalty:typePenalty};
+    }).filter(function(c){
+      return c.fraction > 0.08 && c.fraction < 0.92 && c.offRoute <= maxOffRoute;
+    });
+    return [0.25, 0.5, 0.75].map(function(target){
+      var best = null, bestScore = Infinity;
+      candidates.forEach(function(c){
+        var score = c.offRoute + Math.abs(c.fraction - target) * direct * 0.45 + c.typePenalty;
+        if (best && Math.abs(c.fraction - best.fraction) < 0.12) score += 25;
+        if (score < bestScore){ bestScore = score; best = c; }
+      });
+      if (!best) return null;
+      candidates = candidates.filter(function(c){ return c.airport !== best.airport && Math.abs(c.fraction - best.fraction) > 0.1; });
+      return best;
+    }).filter(Boolean);
+  }
+  function clearLayers(){ layers.forEach(function(l){ map.removeLayer(l); }); layers = []; }
+  function addLayer(layer){ layers.push(layer); return layer.addTo(map); }
+  function clearWind(){
+    if (!map) return;
+    windLayers.forEach(function(l){ map.removeLayer(l); });
+    windLayers = [];
+  }
+  function addWindLayer(layer){ windLayers.push(layer); return layer.addTo(map); }
+  function clearTraffic(){
+    if (!map) return;
+    trafficLayers.forEach(function(l){ map.removeLayer(l); });
+    trafficLayers = [];
+  }
+  function addTrafficLayer(layer){ trafficLayers.push(layer); return layer.addTo(map); }
+  function marker(latlng, label, color){
+    return L.circleMarker(latlng, {
+      radius:7, weight:3, color:color, fillColor:"#fff", fillOpacity:1
+    }).bindTooltip(label, {permanent:true, direction:"top", offset:[0,-10], className:"airport-label"});
+  }
+  function windUrl(a){
+    return WIND_URL + "?latitude=" + a.lat.toFixed(4) + "&longitude=" + a.lon.toFixed(4) +
+      "&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn&timezone=UTC&forecast_days=1";
+  }
+  function windFromResponse(a, data){
+    var current = data && data.current ? data.current : {};
+    var speed = Number(current.wind_speed_10m);
+    var direction = Number(current.wind_direction_10m);
+    if (!isFinite(speed) || !isFinite(direction)) return {airport:a, error:true};
+    return {airport:a, speed:speed, direction:direction, time:current.time || ""};
+  }
+  function windMarker(a, wind){
+    var blowingTo = (wind.direction + 180) % 360;
+    var label = Math.round(wind.direction) + " / " + Math.round(wind.speed) + " kt";
+    var html = '<div class="wind-badge"><span class="wind-arrow" style="transform:rotate(' +
+      blowingTo.toFixed(0) + 'deg)">&#8593;</span><span>' + esc(label) + '</span></div>';
+    return L.marker([a.lat, a.lon], {
+      icon:L.divIcon({className:"wind-marker", html:html, iconSize:[118,40], iconAnchor:[-12,20]})
+    }).bindTooltip(esc(codeOf(a)) + " wind from " + esc(label),
+      {permanent:false, sticky:true, className:"airspace-label"});
+  }
+  function refreshPanels(){
+    if (!currentPlan) return;
+    renderAirportDetails(currentPlan.from, currentPlan.to);
+    renderDiversions(currentPlan.diversions, currentPlan.directNm, currentPlan.speed);
+  }
+  function updateWinds(){
+    if (!currentPlan || !map) return;
+    var planSnapshot = currentPlan;
+    var requestId = ++windRequestId;
+    var airportsForWind = [planSnapshot.from].concat(planSnapshot.diversions.map(function(d){
+      return d.airport;
+    }), [planSnapshot.to]);
+    clearWind();
+    airportsForWind.forEach(function(a){ windIndex.set(a.ident, null); });
+    refreshPanels();
+    Promise.all(airportsForWind.map(function(a){
+      return fetch(windUrl(a), {cache:"no-store"}).then(function(r){
+        if (!r.ok) throw new Error("wind unavailable");
+        return r.json();
+      }).then(function(data){ return windFromResponse(a, data); })
+        .catch(function(){ return {airport:a, error:true}; });
+    })).then(function(results){
+      if (requestId !== windRequestId || currentPlan !== planSnapshot) return;
+      results.forEach(function(result){ windIndex.set(result.airport.ident, result); });
+      clearWind();
+      results.forEach(function(result){
+        if (!result.error) addWindLayer(windMarker(result.airport, result));
+      });
+      refreshPanels();
+    });
+  }
+  function startWindTimer(){
+    if (windTimer) clearInterval(windTimer);
+    windTimer = setInterval(updateWinds, 600000);
+  }
+  function trafficBounds(from, to){
+    var pad = 1.0;
+    return {
+      lamin:Math.min(from.lat, to.lat) - pad,
+      lomin:Math.min(from.lon, to.lon) - pad,
+      lamax:Math.max(from.lat, to.lat) + pad,
+      lomax:Math.max(from.lon, to.lon) + pad
+    };
+  }
+  function trafficUrl(from, to){
+    var b = trafficBounds(from, to);
+    return TRAFFIC_URL + "?lamin=" + b.lamin.toFixed(4) + "&lomin=" + b.lomin.toFixed(4) +
+      "&lamax=" + b.lamax.toFixed(4) + "&lomax=" + b.lomax.toFixed(4);
+  }
+  function aircraftFromState(s){
+    if (!Array.isArray(s)) return null;
+    var lon = Number(s[5]), lat = Number(s[6]);
+    var geo = Number(s[13]), baro = Number(s[7]);
+    var meters = isFinite(geo) ? geo : baro;
+    if (!isFinite(lat) || !isFinite(lon) || !isFinite(meters)) return null;
+    return {
+      icao:String(s[0] || "").toUpperCase(),
+      callsign:String(s[1] || "").trim() || String(s[0] || "").toUpperCase(),
+      lat:lat, lon:lon, onGround:!!s[8],
+      altitude:meters * 3.28084,
+      speed:Number(s[9]) * 1.94384,
+      track:Number(s[10])
+    };
+  }
+  function trafficMarker(a, routeDistance){
+    var speed = isFinite(a.speed) ? Math.round(a.speed) + " kt" : "speed n/a";
+    var track = isFinite(a.track) ? Math.round(a.track) + " deg" : "track n/a";
+    var html = '<b>' + esc(a.callsign) + '</b><br>' + feet(a.altitude) +
+      '<br>' + speed + " / " + track + '<br>' + Math.round(routeDistance) + " NM from track";
+    return L.marker([a.lat, a.lon], {
+      icon:L.divIcon({className:"traffic-star", html:"&#9733;", iconSize:[28,28], iconAnchor:[14,14]})
+    }).bindTooltip(html, {permanent:false, sticky:true, className:"traffic-label"});
+  }
+  function startTrafficTimer(){
+    if (trafficTimer) clearInterval(trafficTimer);
+    trafficTimer = setInterval(updateTraffic, 30000);
+  }
+  function stopTraffic(){
+    trafficActive = false;
+    if (trafficTimer) clearInterval(trafficTimer);
+    trafficTimer = null;
+    clearTraffic();
+    trafficBtn.textContent = "Start live traffic";
+    trafficStatus("Traffic off.", false);
+  }
+  function updateTraffic(){
+    if (!trafficActive || !currentRoute || !map) return;
+    var altitude = plannedAltitude();
+    if (!altitude){
+      clearTraffic();
+      trafficStatus("Enter a planned altitude to filter traffic.", true);
+      return;
+    }
+    trafficStatus("Updating traffic within +/-500 ft of " + feet(altitude) + "...", false);
+    fetch(trafficUrl(currentRoute.from, currentRoute.to), {cache:"no-store"}).then(function(r){
+      if (!r.ok) throw new Error("traffic unavailable");
+      return r.json();
+    }).then(function(data){
+      var states = Array.isArray(data.states) ? data.states : [];
+      var matches = states.map(aircraftFromState).filter(Boolean).map(function(a){
+        var route = distanceToSegmentNm(a, currentRoute.from, currentRoute.to);
+        return {aircraft:a, routeDistance:route.nm};
+      }).filter(function(item){
+        return !item.aircraft.onGround && item.routeDistance <= 35 &&
+          Math.abs(item.aircraft.altitude - altitude) <= 500;
+      }).sort(function(a, b){
+        return a.routeDistance - b.routeDistance;
+      }).slice(0, 80);
+      clearTraffic();
+      matches.forEach(function(item){ addTrafficLayer(trafficMarker(item.aircraft, item.routeDistance)); });
+      trafficStatus("Showing " + matches.length + " aircraft within +/-500 ft of " +
+        feet(altitude) + ". Refreshes every 30 seconds.", false);
+    }).catch(function(){
+      clearTraffic();
+      trafficStatus("Live traffic is unavailable right now. Try again in a minute.", true);
+    });
+  }
+  function toggleTraffic(){
+    if (trafficActive){ stopTraffic(); return; }
+    if (!currentRoute){ plan(); }
+    if (!currentRoute){
+      trafficStatus("Plan a valid route before starting traffic.", true);
+      return;
+    }
+    trafficActive = true;
+    trafficBtn.textContent = "Stop live traffic";
+    updateTraffic();
+    startTrafficTimer();
+  }
+  function renderDiversions(items, directNm, speed){
+    var box = document.getElementById("diversions");
+    if (!items.length){
+      box.innerHTML = '<p class="small">No suitable diversion airports found near this track.</p>';
+      return;
+    }
+    box.innerHTML = items.map(function(c, i){
+      var a = c.airport;
+      return airportBlock(a, (i + 1) + ".", '<p>' + Math.round(c.offRoute) + ' NM off route, around ' +
+        Math.round(c.fraction * 100) + '% along track</p>' +
+        '<p>' + timeForNm(c.offRoute, speed) + ' from track point; ' +
+        timeForNm(directNm * c.fraction, speed) + ' after departure</p>');
+    }).join("");
+  }
+  function renderAirportDetails(from, to){
+    document.getElementById("airportDetails").innerHTML = airportBlock(from, "From", "") + airportBlock(to, "To", "");
+  }
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function plan(){
+    if (!window.L){ status("Map library did not load. Check your internet connection.", true); return; }
+    var from = airportIndex.get(fromEl.value.trim().toUpperCase());
+    var to = airportIndex.get(toEl.value.trim().toUpperCase());
+    if (!from || !to){
+      currentRoute = null;
+      currentPlan = null;
+      clearWind();
+      clearTraffic();
+      status("Airport code not found. Try an ICAO code like KPHX or KLAS.", true);
+      return;
+    }
+    if (!map){
+      map = L.map("map", {zoomControl:true});
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom:12, attribution:"&copy; OpenStreetMap contributors"
+      }).addTo(map);
+    }
+    clearLayers();
+    clearWind();
+    clearTraffic();
+    currentRoute = {from:from, to:to};
+    var route = [[from.lat, from.lon], [to.lat, to.lon]];
+    var directNm = nmBetween(from, to);
+    var speed = cruiseSpeed();
+    var diversions = findDiversions(from, to);
+    currentPlan = {from:from, to:to, directNm:directNm, speed:speed, diversions:diversions};
+    drawAirspaceRings(from, to, diversions);
+    addLayer(L.polyline(route, {color:"#245C9E", weight:4, opacity:.95}));
+    addLayer(marker([from.lat, from.lon], codeOf(from), "#245C9E"));
+    addLayer(marker([to.lat, to.lon], codeOf(to), "#245C9E"));
+    diversions.forEach(function(c){
+      addLayer(L.polyline([[c.nearest.lat, c.nearest.lon], [c.airport.lat, c.airport.lon]],
+        {color:"#1D9FB8", weight:3, dashArray:"8 7", opacity:.9}));
+      addLayer(marker([c.airport.lat, c.airport.lon], codeOf(c.airport), "#1D9FB8"));
+    });
+    map.fitBounds(L.latLngBounds(route.concat(diversions.map(function(c){ return [c.airport.lat, c.airport.lon]; }))),
+      {padding:[44,44]});
+    var routeBearing = bearing(from, to);
+    document.getElementById("routeDistance").textContent = Math.round(directNm) + " NM";
+    document.getElementById("routeTrack").textContent = Math.round(routeBearing) + " deg";
+    document.getElementById("routeTime").textContent = timeForNm(directNm, speed);
+    document.getElementById("routeName").textContent = codeOf(from) + " to " + codeOf(to) + ": " +
+      from.name + " to " + to.name + ".";
+    renderAirportDetails(from, to);
+    renderDiversions(diversions, directNm, speed);
+    updateWinds();
+    startWindTimer();
+    status("Route planned with " + diversions.length + " diversion options at " +
+      (speed ? Math.round(speed) + " kt." : "no speed set."), false);
+    if (trafficActive) updateTraffic();
+  }
+
+  button.addEventListener("click", plan);
+  trafficBtn.addEventListener("click", toggleTraffic);
+  [fromEl, toEl].forEach(function(el){
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter") plan(); });
+    el.addEventListener("input", function(){ el.value = el.value.toUpperCase(); });
+  });
+  speedEl.addEventListener("keydown", function(e){ if (e.key === "Enter") plan(); });
+  speedEl.addEventListener("blur", plan);
+  altitudeEl.addEventListener("keydown", function(e){ if (e.key === "Enter") updateTraffic(); });
+  altitudeEl.addEventListener("blur", updateTraffic);
+  loadAirports();
+  loadFrequencies();
+})();
+</script>
+</body>
+</html>
