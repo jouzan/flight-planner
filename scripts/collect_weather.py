@@ -88,6 +88,10 @@ def metars(raw):
             'clouds': clouds, 'cloud_base_agl_ft': min(bases) if bases else None,
             'ceiling_agl_ft': min(ceilings) if ceilings else None,
             'vertical_visibility_ft': vv, 'visibility_sm': text(el, 'visibility_statute_mi'),
+            'wind_direction': text(el, 'wind_dir_degrees'), 'wind_speed_kt': number(text(el, 'wind_speed_kt')),
+            'wind_gust_kt': number(text(el, 'wind_gust_kt')), 'temperature_c': number(text(el, 'temp_c')),
+            'dewpoint_c': number(text(el, 'dewpoint_c')), 'altimeter_inhg': number(text(el, 'altim_in_hg')),
+            'present_weather': text(el, 'wx_string'),
             'raw': text(el, 'raw_text'), 'hazardous': category in {'IFR', 'LIFR'},
             'title': text(el, 'station_id') + ' · ' + category,
         }, geometry))

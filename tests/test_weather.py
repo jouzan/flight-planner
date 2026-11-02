@@ -28,6 +28,16 @@ class WeatherTests(unittest.TestCase):
         self.assertEqual(p['ceiling_agl_ft'], 0)
         self.assertTrue(p['hazardous'])
 
+    def test_decoded_metar_fields_preserve_zero_and_missing_values(self):
+        raw=b'<root><METAR><latitude>33</latitude><longitude>-112</longitude><temp_c>0</temp_c><wind_speed_kt>0</wind_speed_kt><wind_dir_degrees>VRB</wind_dir_degrees><altim_in_hg>29.92</altim_in_hg><wx_string>-RA</wx_string></METAR></root>'
+        p=wx.metars(raw)[0]['properties']
+        self.assertEqual(p['temperature_c'],0)
+        self.assertEqual(p['wind_speed_kt'],0)
+        self.assertEqual(p['wind_direction'],'VRB')
+        self.assertIsNone(p['dewpoint_c'])
+        self.assertEqual(p['altimeter_inhg'],29.92)
+        self.assertEqual(p['present_weather'],'-RA')
+
     def test_negative_icing_and_turbulence_do_not_raise_hazards(self):
         raw = b'<root><AircraftReport><latitude>34</latitude><longitude>-112</longitude><icing_condition icing_intensity="NEG"/><turbulence_condition turbulence_intensity="NEG"/></AircraftReport></root>'
         p = wx.pireps(raw)[0]['properties']

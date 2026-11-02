@@ -56,11 +56,32 @@ Worldwide METAR/SIGMET coverage varies. PIREPs are primarily US/North Atlantic;
 G-AIRMET coverage is CONUS; NWS alerts are US surface products. Missing reports
 never establish the absence of hazards. Use an official briefing before flight.
 
+## Airport METARs, radio and panel sizing
+
+Each airport card has a **METAR / English** button and an airport-specific
+**LiveATC** link. Map toolbar buttons open the same airport tools. The METAR
+window shows the untouched original report plus a table explaining supported
+fields: observation time, flight category, wind/gusts, visibility, present weather,
+cloud layers, base/ceiling, temperature/dew point and altimeter setting. Remarks
+and unknown codes stay visible without invented translations. Pick another route
+airport or enter a reporting-station ICAO. No nearby station is silently substituted
+if an airport has no METAR. Old observations/snapshots are marked unverified.
+
+LiveATC opens the selected airport's external feed directory in a new tab.
+Feed availability and listening access depend on LiveATC; this app does not scrape,
+embed, rehost, authenticate to or automatically play its audio streams.
+
+Drag the divider between map and weather panel to resize it, or focus the divider
+and use the arrow keys. Double-click resets its width. Width is remembered locally;
+**Hide weather / Show weather** maximizes or restores the map. On narrow screens
+the weather panel stacks below the map instead of squeezing it.
+
 ## Local development
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 node --test tests/weather.test.cjs
+node --test tests/airport-tools.test.cjs
 python3 scripts/collect_weather.py
 python3 -m http.server 8767
 ```

@@ -200,7 +200,14 @@
   doc.querySelectorAll("[data-wx-filter]").forEach(function(b){b.addEventListener("click",function(){chosen=b.dataset.wxFilter;render();});});
   cards.addEventListener("click",function(e){var button=e.target.closest("[data-wx-report]");if(!button||!map||stale())return;var feature=selected.find(function(f){return f.properties.id===button.dataset.wxReport;});if(feature){map.setView(center(feature),Math.max(6,map.getZoom()));L.popup().setLatLng(center(feature)).setContent(popup(feature)).openOn(map);}});
   refresh.addEventListener("click",update);
-  root.PlannerWeather={setRoute:function(nextMap,nextRoute){
+  root.PlannerWeather={getMetar:function(station){
+    var ready=data?Promise.resolve():update();
+    return ready.then(function(){
+      var reports=data?(data.features||[]).filter(function(f){return f.properties.kind==="metar"&&f.properties.station===station;}):[];
+      reports.sort(function(a,b){return (time(b.properties.observed_at)||0)-(time(a.properties.observed_at)||0);});
+      return {report:reports.length?reports[0].properties:null,available:!!data,stale:stale()||!usable("metars"),generated_at:data&&data.generated_at};
+    });
+  },setRoute:function(nextMap,nextRoute){
     clear();map=nextMap;route=nextRoute;
     if(!route){cards.innerHTML='<div class="wx-empty">Plan a valid route to see nearby reports.</div>';doc.getElementById("wxScope").textContent="No route selected";doc.getElementById("wxHazards").textContent="No route";return;}
     if(!map.getPane("weatherAreas")){map.createPane("weatherAreas").style.zIndex=360;map.createPane("weatherMarkers").style.zIndex=460;}
