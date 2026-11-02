@@ -76,6 +76,10 @@ and use the arrow keys. Double-click resets its width. Width is remembered local
 **Hide weather / Show weather** maximizes or restores the map. On narrow screens
 the weather panel stacks below the map instead of squeezing it.
 
+The left airport panel also has a divider along its right edge. Drag it right to
+expand or left to shrink; arrow keys resize it, and double-click restores 320 px.
+Both panel widths are remembered locally and constrained to leave room for the map.
+
 ## Local development
 
 ```sh

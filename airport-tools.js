@@ -50,8 +50,8 @@
   if(!root.document)return;
   var doc=root.document,dialog=doc.getElementById("airportDialog"),content=doc.getElementById("airportDialogContent"),picker=doc.getElementById("metarAirport"),station=doc.getElementById("metarStation");
   var plan=null,map=null,mode="metar",request=0,observer=null,drag=null;
-  var main=doc.querySelector("main"),panel=doc.getElementById("weatherPanel"),handle=doc.getElementById("wxResize"),toggle=doc.getElementById("toggleWeather");
-  var width=330;try{width=Number(localStorage.getItem("planner-weather-width"))||330;}catch(e){}
+  var main=doc.querySelector("main"),panel=doc.getElementById("weatherPanel"),handle=doc.getElementById("wxResize"),leftHandle=doc.getElementById("airportResize"),toggle=doc.getElementById("toggleWeather");
+  var width=330,leftWidth=320;try{width=Number(localStorage.getItem("planner-weather-width"))||330;leftWidth=Number(localStorage.getItem("planner-airport-width"))||320;}catch(e){}
   function esc(s){return String(s??"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function airports(){return plan?[plan.from].concat(plan.diversions.map(function(d){return d.airport;}),[plan.to]).filter(function(a,i,all){return all.findIndex(function(x){return x.ident===a.ident;})===i;}):[];}
   function fillPicker(code){
@@ -88,9 +88,30 @@
     if(!dialog.open)dialog.showModal();show();
   }
   function resize(value,save){
-    var max=Math.min(620,Math.max(260,main.clientWidth-580));width=Math.min(max,Math.max(260,value));
-    main.style.setProperty("--weather-width",width+"px");handle.setAttribute("aria-valuenow",String(Math.round(width)));handle.setAttribute("aria-valuemax",String(Math.round(max)));
-    if(save)try{localStorage.setItem("planner-weather-width",String(width));}catch(e){}
+    layout("right",value,save);
+  }
+  function resizeLeft(value,save){layout("left",value,save);}
+  function layout(side,value,save){
+    if(side==="left")leftWidth=value;else width=value;
+    var available=Math.min(main.clientWidth,doc.documentElement.clientWidth),maxLeft=680,maxRight=620;
+    if(available>860){
+      if(side==="left"){
+        width=Math.min(620,Math.max(260,width));
+        maxLeft=Math.min(680,Math.max(260,available-320-(panel.hidden?0:width)));
+        leftWidth=Math.min(maxLeft,Math.max(260,leftWidth));
+        maxRight=Math.min(620,Math.max(260,available-leftWidth-320));
+        width=Math.min(maxRight,width);
+      }else{
+        leftWidth=Math.min(680,Math.max(260,Math.min(leftWidth,available-320-(panel.hidden?0:260))));
+        maxRight=Math.min(620,Math.max(260,available-leftWidth-320));
+        width=Math.min(maxRight,Math.max(260,width));
+        maxLeft=Math.min(680,Math.max(260,available-320-(panel.hidden?0:width)));
+      }
+    }
+    main.style.setProperty("--weather-width",width+"px");main.style.setProperty("--airport-width",leftWidth+"px");
+    handle.setAttribute("aria-valuenow",String(Math.round(width)));handle.setAttribute("aria-valuemax",String(Math.round(maxRight)));
+    leftHandle.setAttribute("aria-valuenow",String(Math.round(leftWidth)));leftHandle.setAttribute("aria-valuemax",String(Math.round(maxLeft)));
+    if(save)try{localStorage.setItem("planner-weather-width",String(width));localStorage.setItem("planner-airport-width",String(leftWidth));}catch(e){}
     if(map)requestAnimationFrame(function(){map.invalidateSize({pan:false,animate:false});});
   }
   resize(width,false);
@@ -104,12 +125,18 @@
   station.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();show();}});
   doc.addEventListener("click",function(e){var button=e.target.closest("[data-airport-metar]");if(button)open("metar",button.dataset.airportMetar);});
   toggle.addEventListener("click",function(){panel.hidden=!panel.hidden;main.classList.toggle("weather-collapsed",panel.hidden);toggle.textContent=panel.hidden?"Show weather":"Hide weather";toggle.setAttribute("aria-expanded",String(!panel.hidden));resize(width,false);});
-  handle.addEventListener("pointerdown",function(e){if(e.button!==0)return;e.preventDefault();e.stopPropagation();drag={pointer:e.pointerId,restore:!!(map&&map.dragging.enabled())};handle.setPointerCapture(e.pointerId);if(drag.restore)map.dragging.disable();main.classList.add("weather-resizing");});
-  handle.addEventListener("pointermove",function(e){if(drag&&e.pointerId===drag.pointer)resize(main.getBoundingClientRect().right-e.clientX,true);});
+  function startDrag(e,side,grip){if(e.button!==0)return;e.preventDefault();e.stopPropagation();drag={pointer:e.pointerId,side:side,restore:!!(map&&map.dragging.enabled())};grip.setPointerCapture(e.pointerId);if(drag.restore)map.dragging.disable();main.classList.add("weather-resizing");}
+  function moveDrag(e){if(drag&&e.pointerId===drag.pointer){var bounds=main.getBoundingClientRect();if(drag.side==="left")resizeLeft(e.clientX-bounds.left,true);else resize(bounds.right-e.clientX,true);}}
+  handle.addEventListener("pointerdown",function(e){startDrag(e,"right",handle);});
+  leftHandle.addEventListener("pointerdown",function(e){startDrag(e,"left",leftHandle);});
+  handle.addEventListener("pointermove",moveDrag);leftHandle.addEventListener("pointermove",moveDrag);
   function stop(e){if(!drag||e.pointerId!==drag.pointer)return;if(drag.restore&&map)map.dragging.enable();drag=null;main.classList.remove("weather-resizing");}
   handle.addEventListener("pointerup",stop);handle.addEventListener("pointercancel",stop);handle.addEventListener("lostpointercapture",stop);
+  leftHandle.addEventListener("pointerup",stop);leftHandle.addEventListener("pointercancel",stop);leftHandle.addEventListener("lostpointercapture",stop);
   handle.addEventListener("dblclick",function(){resize(330,true);});
   handle.addEventListener("keydown",function(e){if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();resize(e.key==="Home"?260:e.key==="End"?620:width+(e.key==="ArrowLeft"?30:-30),true);});
+  leftHandle.addEventListener("dblclick",function(){resizeLeft(320,true);});
+  leftHandle.addEventListener("keydown",function(e){if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();resizeLeft(e.key==="Home"?260:e.key==="End"?680:leftWidth+(e.key==="ArrowRight"?30:-30),true);});
   root.addEventListener("resize",function(){resize(width,false);});
   root.AirportTools={setRoute:function(nextMap,nextPlan){map=nextMap;plan=nextPlan;if(map&&!observer){observer=new ResizeObserver(function(){map.invalidateSize({pan:false,animate:false});});observer.observe(doc.getElementById("map"));}if(dialog.open){fillPicker(station.value||(plan&&plan.from.ident)||"KPHX");show();}resize(width,false);}};
 })(typeof window!=="undefined"?window:globalThis);

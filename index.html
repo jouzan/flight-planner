@@ -129,7 +129,7 @@
     <p class="sub">Direct route, nearby diversion airports, and quick distance checks.</p>
   </header>
   <main>
-    <aside>
+    <aside id="airportPanel" aria-label="Route planning and airports">
       <section class="card">
         <div class="grid">
           <div>
@@ -177,6 +177,7 @@
     </aside>
     <section class="map-wrap" aria-label="Route map">
       <div id="map"></div>
+      <div id="airportResize" class="wx-resize airport-resize" role="separator" tabindex="0" aria-label="Resize airport panel. Drag right to expand, or use left and right arrow keys." aria-controls="airportPanel" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="680" aria-valuenow="320" title="Drag right to expand airport panel; double-click to reset"><span></span></div>
       <div class="airport-map-tools" aria-label="Airport tools"><button type="button" id="openMetar">METAR table</button><button type="button" id="openAtc">LiveATC ↗</button><button type="button" id="toggleWeather" aria-expanded="true" aria-controls="weatherPanel">Hide weather</button></div>
       <div id="wxResize" class="wx-resize" role="separator" tabindex="0" aria-label="Resize weather panel. Use left and right arrow keys." aria-orientation="vertical" aria-valuemin="260" aria-valuemax="600" aria-valuenow="330" title="Drag to resize weather panel; double-click to reset"><span></span></div>
       <div class="map-key">
