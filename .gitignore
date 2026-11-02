@@ -1,0 +1,4 @@
+__pycache__/
+.DS_Store
+weather-data/
+test-results/

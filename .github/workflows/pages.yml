@@ -1,0 +1,53 @@
+name: Publish planner and government weather
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: flight-planner-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test weather normalization and hazard selection
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          node --test tests/weather.test.cjs
+      - name: Fetch official NOAA and NWS reports
+        run: python scripts/collect_weather.py
+      - name: Assemble static site
+        run: |
+          mkdir -p _site
+          cp index.html weather.js weather.css _site/
+          cp -r weather-data _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish site
+        id: deployment
+        uses: actions/deploy-pages@v4
