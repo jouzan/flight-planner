@@ -51,6 +51,9 @@
   var doc=root.document,dialog=doc.getElementById("airportDialog"),content=doc.getElementById("airportDialogContent"),picker=doc.getElementById("metarAirport"),station=doc.getElementById("metarStation");
   var plan=null,map=null,mode="metar",request=0,observer=null,drag=null;
   var main=doc.querySelector("main"),panel=doc.getElementById("weatherPanel"),handle=doc.getElementById("wxResize"),leftHandle=doc.getElementById("airportResize"),toggle=doc.getElementById("toggleWeather");
+  var airportPanel=doc.getElementById("airportPanel"),trackToggle=doc.getElementById("toggleTrackMenu"),widthSlider=doc.getElementById("airportWidthSlider"),widthValue=doc.getElementById("airportWidthValue");
+  var narrow=root.matchMedia("(max-width:860px)"),airportOpen=!narrow.matches;
+  main.classList.toggle("airport-collapsed",!airportOpen);trackToggle.setAttribute("aria-expanded",String(airportOpen));airportPanel.inert=!airportOpen;
   var width=330,leftWidth=320;try{width=Number(localStorage.getItem("planner-weather-width"))||330;leftWidth=Number(localStorage.getItem("planner-airport-width"))||320;}catch(e){}
   function esc(s){return String(s??"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function airports(){return plan?[plan.from].concat(plan.diversions.map(function(d){return d.airport;}),[plan.to]).filter(function(a,i,all){return all.findIndex(function(x){return x.ident===a.ident;})===i;}):[];}
@@ -94,16 +97,17 @@
   function layout(side,value,save){
     if(side==="left")leftWidth=value;else width=value;
     var available=Math.min(main.clientWidth,doc.documentElement.clientWidth),maxLeft=680,maxRight=620;
+    if(available<=860){maxLeft=Math.max(260,Math.min(680,available-48));leftWidth=Math.min(maxLeft,Math.max(260,leftWidth));}
     if(available>860){
       if(side==="left"){
         width=Math.min(620,Math.max(260,width));
         maxLeft=Math.min(680,Math.max(260,available-320-(panel.hidden?0:width)));
         leftWidth=Math.min(maxLeft,Math.max(260,leftWidth));
-        maxRight=Math.min(620,Math.max(260,available-leftWidth-320));
+        maxRight=Math.min(620,Math.max(260,available-(airportOpen?leftWidth:0)-320));
         width=Math.min(maxRight,width);
       }else{
         leftWidth=Math.min(680,Math.max(260,Math.min(leftWidth,available-320-(panel.hidden?0:260))));
-        maxRight=Math.min(620,Math.max(260,available-leftWidth-320));
+        maxRight=Math.min(620,Math.max(260,available-(airportOpen?leftWidth:0)-320));
         width=Math.min(maxRight,Math.max(260,width));
         maxLeft=Math.min(680,Math.max(260,available-320-(panel.hidden?0:width)));
       }
@@ -111,10 +115,18 @@
     main.style.setProperty("--weather-width",width+"px");main.style.setProperty("--airport-width",leftWidth+"px");
     handle.setAttribute("aria-valuenow",String(Math.round(width)));handle.setAttribute("aria-valuemax",String(Math.round(maxRight)));
     leftHandle.setAttribute("aria-valuenow",String(Math.round(leftWidth)));leftHandle.setAttribute("aria-valuemax",String(Math.round(maxLeft)));
+    widthSlider.max=String(Math.round(maxLeft));widthSlider.value=String(Math.round(leftWidth));widthValue.textContent=Math.round(leftWidth)+" px";
     if(save)try{localStorage.setItem("planner-weather-width",String(width));localStorage.setItem("planner-airport-width",String(leftWidth));}catch(e){}
     if(map)requestAnimationFrame(function(){map.invalidateSize({pan:false,animate:false});});
   }
   resize(width,false);
+  function openAirportMenu(value){airportOpen=value;main.classList.toggle("airport-collapsed",!value);trackToggle.setAttribute("aria-expanded",String(value));airportPanel.inert=!value;resize(width,false);if(!value)trackToggle.focus();}
+  trackToggle.addEventListener("click",function(){openAirportMenu(!airportOpen);});
+  doc.getElementById("closeTrackMenu").addEventListener("click",function(){openAirportMenu(false);});
+  widthSlider.addEventListener("input",function(){resizeLeft(Number(widthSlider.value),true);});
+  doc.getElementById("expandTrackMenu").addEventListener("click",function(){resizeLeft(Number(widthSlider.max),true);});
+  narrow.addEventListener("change",function(){openAirportMenu(!narrow.matches);});
+  doc.addEventListener("keydown",function(e){if(e.key==="Escape"&&narrow.matches&&airportOpen&&!dialog.open)openAirportMenu(false);});
   doc.getElementById("openMetar").addEventListener("click",function(){open("metar");});
   doc.getElementById("openAtc").addEventListener("click",function(){open("atc");});
   doc.getElementById("closeAirportDialog").addEventListener("click",function(){dialog.close();});

@@ -11,3 +11,18 @@
 @media(max-width:1000px) and (min-width:861px){main{grid-template-columns:var(--airport-width,260px) minmax(320px,1fr) var(--weather-width,290px)}main.weather-collapsed{grid-template-columns:var(--airport-width,260px) minmax(0,1fr)}}
 @media(max-width:860px){main,main.weather-collapsed{grid-template-columns:1fr}.wx-resize{display:none}.airport-dialog{padding:18px}.airport-map-tools button{font-size:11px;padding:9px}.airport-map-tools{right:12px}.airport-picker{gap:12px;padding:12px}.metar-station{align-items:flex-start;flex-wrap:wrap}}
 @media(max-width:520px){.airport-picker{grid-template-columns:1fr}.airport-dialog{width:calc(100% - 20px);border-radius:14px;padding:14px}.airport-dialog h2{font-size:22px}.metar-table{min-width:540px}.airport-map-tools{gap:4px}.airport-map-tools button{padding:8px 7px}}
+/* Explicit menu controls remain discoverable even when a narrow pane hides dividers. */
+main{position:relative;grid-template-columns:var(--airport-column,var(--airport-width,320px)) minmax(320px,1fr) var(--weather-width,330px)}
+#airportPanel{grid-column:1}.map-wrap{grid-column:2;isolation:isolate}.weather-panel{grid-column:3}
+main.weather-collapsed{grid-template-columns:var(--airport-column,var(--airport-width,320px)) minmax(0,1fr)}
+main.airport-collapsed{--airport-column:0px}main.airport-collapsed #airportPanel{display:none}main.airport-collapsed #airportResize{display:none}
+.track-menu-controls{padding:14px;border:1px solid #c7d9ed;border-radius:10px;background:#eaf2fd;margin-bottom:16px}.track-menu-heading{display:flex;align-items:center;gap:8px;margin-bottom:14px}.track-menu-heading h2{font-size:18px;margin:0 auto 0 0;color:#17345c}.track-menu-heading button{width:auto;margin:0;padding:8px;border-radius:7px;font-size:11px;line-height:1.2}.track-menu-heading #closeTrackMenu{background:white;color:#245c9e;font-size:20px;padding:3px 8px;border:1px solid #c1d2e6}.track-menu-controls label{display:flex;justify-content:space-between;font-size:11px;color:#3c5d82}.track-menu-controls output{font-weight:750}.track-menu-controls input[type=range]{width:100%;height:28px;padding:0;border:0;accent-color:#245c9e;background:transparent;cursor:ew-resize}.track-menu-controls p{font-size:10px;color:#5b7290;margin:5px 0 0}
+.airport-resize{width:14px;background:#bfd1e8;border-color:#8faacd}.airport-resize span{width:28px;height:60px;background:#245c9e;color:white;border:2px solid white;box-shadow:0 2px 8px #17345c55;font-size:17px;display:grid;place-items:center;border-radius:8px;flex-shrink:0}.airport-map-tools #toggleTrackMenu{background:#245c9e;color:white;border-color:#245c9e}
+@media(max-width:860px){
+  main,main.weather-collapsed{grid-template-columns:1fr;grid-template-rows:minmax(560px,70vh) auto;overflow:hidden}
+  .map-wrap{grid-column:1;grid-row:1}.weather-panel{grid-column:1;grid-row:2}
+  #airportPanel,main.airport-collapsed #airportPanel{display:block;position:absolute;top:0;left:0;z-index:850;width:min(var(--airport-width,320px),calc(100% - 48px));height:max(560px,70vh);max-height:none;border-right:1px solid #b4c8df;box-shadow:10px 0 30px #17345c33;transform:translateX(0);visibility:visible;transition:transform .2s ease,visibility .2s}
+  main.airport-collapsed #airportPanel{transform:translateX(-105%);visibility:hidden;pointer-events:none}
+  .track-menu-controls{position:sticky;top:-14px;z-index:2}.wx-resize{display:none}
+}
+@media(prefers-reduced-motion:reduce){#airportPanel{transition:none!important}}

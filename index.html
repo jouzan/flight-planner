@@ -119,8 +119,8 @@
     .grid,.stats{grid-template-columns:1fr}
   }
 </style>
-<link rel="stylesheet" href="weather.css">
-<link rel="stylesheet" href="airport-tools.css">
+<link rel="stylesheet" href="weather.css?v=track-menu-3">
+<link rel="stylesheet" href="airport-tools.css?v=track-menu-3">
 </head>
 <body>
 <div class="app">
@@ -130,6 +130,7 @@
   </header>
   <main>
     <aside id="airportPanel" aria-label="Route planning and airports">
+      <div class="track-menu-controls"><div class="track-menu-heading"><h2>Track menu</h2><button id="expandTrackMenu" type="button">Expand ↔</button><button id="closeTrackMenu" type="button" aria-label="Close track menu">×</button></div><label for="airportWidthSlider">Slide to resize <output id="airportWidthValue" for="airportWidthSlider">320 px</output></label><input id="airportWidthSlider" type="range" min="260" max="680" step="1" value="320" aria-label="Track menu width"><p>Drag the slider right to expand the menu.</p></div>
       <section class="card">
         <div class="grid">
           <div>
@@ -177,8 +178,8 @@
     </aside>
     <section class="map-wrap" aria-label="Route map">
       <div id="map"></div>
-      <div id="airportResize" class="wx-resize airport-resize" role="separator" tabindex="0" aria-label="Resize airport panel. Drag right to expand, or use left and right arrow keys." aria-controls="airportPanel" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="680" aria-valuenow="320" title="Drag right to expand airport panel; double-click to reset"><span></span></div>
-      <div class="airport-map-tools" aria-label="Airport tools"><button type="button" id="openMetar">METAR table</button><button type="button" id="openAtc">LiveATC ↗</button><button type="button" id="toggleWeather" aria-expanded="true" aria-controls="weatherPanel">Hide weather</button></div>
+      <div id="airportResize" class="wx-resize airport-resize" role="separator" tabindex="0" aria-label="Resize airport panel. Drag right to expand, or use left and right arrow keys." aria-controls="airportPanel" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="680" aria-valuenow="320" title="Drag right to expand airport panel; double-click to reset"><span>↔</span></div>
+      <div class="airport-map-tools" aria-label="Airport tools"><button type="button" id="toggleTrackMenu" aria-expanded="true" aria-controls="airportPanel">☰ Track menu</button><button type="button" id="openMetar">METAR table</button><button type="button" id="openAtc">LiveATC ↗</button><button type="button" id="toggleWeather" aria-expanded="true" aria-controls="weatherPanel">Hide weather</button></div>
       <div id="wxResize" class="wx-resize" role="separator" tabindex="0" aria-label="Resize weather panel. Use left and right arrow keys." aria-orientation="vertical" aria-valuemin="260" aria-valuemax="600" aria-valuenow="330" title="Drag to resize weather panel; double-click to reset"><span></span></div>
       <div class="map-key">
         <div class="key-line"><span class="key-ring blue"></span><span>Controlled estimate</span></div>
@@ -216,8 +217,8 @@
 </dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="weather.js"></script>
-<script src="airport-tools.js"></script>
+<script src="weather.js?v=track-menu-3"></script>
+<script src="airport-tools.js?v=track-menu-3"></script>
 <script>
 (function(){
   "use strict";

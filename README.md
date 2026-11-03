@@ -80,6 +80,11 @@ The left airport panel also has a divider along its right edge. Drag it right to
 expand or left to shrink; arrow keys resize it, and double-click restores 320 px.
 Both panel widths are remembered locally and constrained to leave room for the map.
 
+The top of the **Track menu** contains an explicit **Slide to resize** range slider
+and **Expand** button. The map's blue **Track menu** button opens/closes it. In
+narrow browser panes the menu is a sliding overlay drawer, so it stays usable
+without pushing the map below a long airport list. Close it with × or Escape.
+
 ## Local development
 
 ```sh
