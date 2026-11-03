@@ -163,14 +163,15 @@
   function render(){
     if(!route || !data) return;
     var now=Date.now();selected=select(data,route,now);
-    var failures=SOURCE_NAMES.filter(function(k){return !usable(k);});
+    var visibleSources=SOURCE_NAMES.filter(function(k){return k!=="nws_observations"||data.sources[k];});
+    var failures=visibleSources.filter(function(k){return !usable(k);});
     var isStale=stale(), direct=usable("nws_observations")||usable("nws"), badCount=selected.filter(function(f){return hazard(f,now)&&usable(f.properties.source);}).length;
     status.className="wx-status"+(isStale||failures.length?" wx-status-warn":"");
     status.textContent=isStale?(direct?"Partial live coverage: NWS observations/alerts update directly. AWC aviation snapshot is "+Math.round(age(data.generated_at,now))+" minutes old; expired aviation layers are hidden.":"Weather publishing is delayed and direct NWS data is unavailable. Current map weather is hidden; use official sources."):failures.filter(function(k){return k!=="nws_observations";}).length?"Some feeds unavailable; coverage is incomplete.":"Official feeds retrieved "+minutes(data.generated_at)+". Reports have individual validity times.";
     doc.getElementById("wxUpdated").textContent="Published "+utc(data.generated_at);
     doc.getElementById("wxHazards").textContent=isStale?(direct?"Partial live coverage":"Data stale"):badCount+" hazard report"+(badCount===1?"":"s");
     doc.getElementById("wxScope").textContent=route.from.ident+" → "+route.to.ident+" · within 100 NM · all altitudes";
-    doc.getElementById("wxSources").innerHTML=SOURCE_NAMES.map(function(k){var s=data.sources[k]||{url:"https://aviationweather.gov/"};return '<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(k.toUpperCase())+'</a><span class="'+(usable(k)?"wx-feed-ok":"wx-feed-bad")+'">'+(usable(k)?"Fetched":"Unavailable / old")+'</span>';}).join("");
+    doc.getElementById("wxSources").innerHTML=visibleSources.map(function(k){var s=data.sources[k]||{url:"https://aviationweather.gov/"};return '<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(k.toUpperCase())+'</a><span class="'+(usable(k)?"wx-feed-ok":"wx-feed-bad")+'">'+(usable(k)?"Fetched":"Unavailable / old")+'</span>';}).join("");
     var unmapped=Object.keys(data.sources).reduce(function(n,k){return n+(data.sources[k].unmapped_count||0);},0);
     doc.getElementById("wxCoverage").textContent=(data.sources.nws_observations?"Direct stations: "+(data.sources.nws_observations.count||0)+" current / "+(data.sources.nws_observations.requested||0)+" requested. ":"")+"Direct NWS observations cover selected US route stations, not all airports; O markers show observations, not derived flight categories. METARs & SIGMETs: worldwide. PIREPs: mainly US / North Atlantic. G-AIRMETs: CONUS. NWS: US surface alerts. "+unmapped+" feed reports lack mapped areas and are not placed on the map. No reports does not mean no hazards.";
     doc.querySelectorAll("[data-wx-filter]").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.wxFilter===chosen));});
