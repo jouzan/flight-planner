@@ -119,8 +119,8 @@
     .grid,.stats{grid-template-columns:1fr}
   }
 </style>
-<link rel="stylesheet" href="weather.css?v=weather-refresh-5">
-<link rel="stylesheet" href="airport-tools.css?v=weather-refresh-5">
+<link rel="stylesheet" href="weather.css?v=direct-weather-6">
+<link rel="stylesheet" href="airport-tools.css?v=direct-weather-6">
 </head>
 <body>
 <div class="app">
@@ -194,7 +194,7 @@
       <p class="wx-scope" id="wxScope">Plan a route to see nearby reports.</p>
       <div class="wx-summary"><strong id="wxHazards">Waiting for data</strong><span id="wxUpdated">Government reports</span></div>
       <p class="wx-status" id="wxStatus" role="status" aria-live="polite">Retrieving official weather snapshot…</p>
-      <p class="wx-footnote">Weather refresh is scheduled every 5 minutes. Publishing can be delayed. The ↻ button reloads the latest published snapshot.</p>
+      <p class="wx-footnote">AWC aviation reports refresh through publishing. If publishing is delayed, US NWS observations and alerts are fetched directly; other expired layers stay hidden.</p>
       <div class="wx-filters" role="group" aria-label="Weather report categories">
         <button type="button" class="wx-filter" data-wx-filter="all" aria-pressed="true">All</button>
         <button type="button" class="wx-filter" data-wx-filter="clouds" aria-pressed="false">Clouds / ceiling</button>
@@ -218,8 +218,9 @@
 </dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="weather.js?v=weather-refresh-5"></script>
-<script src="airport-tools.js?v=weather-refresh-5"></script>
+<script src="weather-live.js?v=direct-weather-6"></script>
+<script src="weather.js?v=direct-weather-6"></script>
+<script src="airport-tools.js?v=direct-weather-6"></script>
 <script>
 (function(){
   "use strict";

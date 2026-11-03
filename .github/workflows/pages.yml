@@ -25,14 +25,14 @@ jobs:
       - name: Test weather normalization and hazard selection
         run: |
           python -m unittest discover -s tests -p 'test_*.py' -v
-          node --test tests/weather.test.cjs
+          node --test tests/weather.test.cjs tests/weather-live.test.cjs
           node --test tests/airport-tools.test.cjs
       - name: Fetch official NOAA and NWS reports
         run: python scripts/collect_weather.py
       - name: Assemble static site
         run: |
           mkdir -p _site
-          cp index.html weather.js weather.css airport-tools.js airport-tools.css _site/
+          cp index.html weather.js weather-live.js weather.css airport-tools.js airport-tools.css _site/
           cp -r weather-data _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

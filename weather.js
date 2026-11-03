@@ -49,6 +49,7 @@
   }
   function relevant(feature, now){
     var p=feature.properties || {};
+    if(p.kind==="observation") return age(p.observed_at,now)>=-10 && age(p.observed_at,now)<=90;
     if(p.kind==="metar") return age(p.observed_at,now)>=-10 && age(p.observed_at,now)<=180;
     if(p.kind==="pirep") return age(p.observed_at,now)>=-10 && age(p.observed_at,now)<=120;
     var end=time(p.valid_to);
@@ -59,7 +60,7 @@
   }
   function current(feature, now){
     var p=feature.properties;
-    if(p.kind==="metar") return age(p.observed_at,now)<=90;
+    if(p.kind==="metar" || p.kind==="observation") return age(p.observed_at,now)<=90;
     if(p.kind==="pirep") return age(p.observed_at,now)<=120;
     if(p.kind==="gairmet") return false; // Valid-time forecasts are never relabeled as observations.
     return time(p.valid_from)<=now && time(p.valid_to)>now;
@@ -90,7 +91,7 @@
   var Core={age:age,time:time,distance:distance,routePoints:routePoints,nearRoute:nearRoute,relevant:relevant,current:current,select:select,hazard:hazard,anchor:anchor};
   if(typeof module!=="undefined" && module.exports) module.exports=Core;
   if(!root.document) return;
-  var SOURCE_NAMES=["metars","pireps","sigmets","gairmets","nws"];
+  var SOURCE_NAMES=["metars","pireps","sigmets","gairmets","nws","nws_observations"];
   var doc=root.document, data=null, route=null, map=null, layers=[], selected=[], chosen="all", loading=null, timer=null;
   var status=doc.getElementById("wxStatus"), cards=doc.getElementById("wxCards"), refresh=doc.getElementById("wxRefresh");
   function esc(value){return String(value===null || value===undefined?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
@@ -98,10 +99,10 @@
   function feet(value){return numeric(value)?Number(value).toLocaleString("en-US")+" ft":"Not reported";}
   function minutes(value){var a=age(value,Date.now());return Number.isFinite(a)?Math.max(0,Math.floor(a))+" min ago":"Age unknown";}
   function stale(){return !data || age(data.generated_at,Date.now())>35 || age(data.generated_at,Date.now()) < -10;}
-  function usable(source){return data && data.sources[source] && data.sources[source].ok && age(data.sources[source].fetched_at,Date.now())<=35;}
+  function usable(source){var a=data&&data.sources[source]&&age(data.sources[source].fetched_at,Date.now());return !!(data&&data.sources[source]&&data.sources[source].ok&&a>=-10&&a<=35);}
   function category(f){
     var p=f.properties;
-    if(p.kind==="metar") return "clouds";
+    if(p.kind==="metar" || p.kind==="observation") return "clouds";
     if(p.kind==="sigmet") return "sigmets";
     if(p.kind==="pirep") return "pireps";
     if(p.kind==="nws") return "alerts";
@@ -115,6 +116,7 @@
     return category(f)===chosen;
   }
   function label(p){
+    if(p.kind==="observation") return "NWS OBSERVATION";
     if(p.kind==="metar") return (p.category||"UNKNOWN") + (age(p.observed_at,Date.now())>90?" · OLD":"");
     if(p.kind==="pirep") return p.urgent?"URGENT PIREP":"OBSERVATION";
     if(p.kind==="gairmet" || time(p.valid_from)>Date.now()) return "FORECAST";
@@ -125,10 +127,10 @@
     return (base==="FZL"?"Freezing level":feet(base)) + " to " + feet(top) + " MSL";
   }
   function summary(p){
-    if(p.kind==="metar"){
+    if(p.kind==="metar" || p.kind==="observation"){
       var hasClear=(p.clouds||[]).some(function(c){return /^(CLR|SKC|NSC|NCD)$/.test(c.cover);});
       return '<div class="wx-clouds"><div><span>Lowest cloud base</span><strong>'+esc(numeric(p.cloud_base_agl_ft)?feet(p.cloud_base_agl_ft):hasClear?"None reported":"Not reported")+'</strong><small>AGL</small></div>'+
-        '<div><span>Ceiling</span><strong>'+esc(numeric(p.ceiling_agl_ft)?feet(p.ceiling_agl_ft):"None reported")+'</strong><small>AGL · BKN / OVC / VV</small></div></div>'+
+        '<div><span>Ceiling</span><strong>'+esc(numeric(p.ceiling_agl_ft)?feet(p.ceiling_agl_ft):"Not reported")+'</strong><small>AGL · BKN / OVC / VV</small></div></div>'+
         '<p>Visibility '+esc(p.visibility_sm||"not reported")+' SM · '+esc(utc(p.observed_at))+'</p>';
     }
     if(p.kind==="pirep"){
@@ -147,12 +149,12 @@
     var position=anchor(f,route);return [position[1],position[0]];
   }
   function draw(){
-    clear();if(!map || stale()) return;
+    clear();if(!map || !data) return;
     selected.filter(matches).filter(function(f){return usable(f.properties.source);}).slice(0,180).forEach(function(f){
       var p=f.properties, bad=hazard(f,Date.now()), future=!current(f,Date.now()) && p.kind!=="metar";
       var color=bad?"#dc2946":p.kind==="metar"&&p.category==="VFR"?"#19866a":"#aa680a";
       if(f.geometry.type!=="Point") add(L.geoJSON(f,{pane:"weatherAreas",style:{color:color,weight:2,fillOpacity:.08,dashArray:future?"6 6":null}}).bindPopup(popup(f)));
-      var icon=p.kind==="metar"?p.category==="UNKNOWN"?"?":p.category:p.kind==="pirep"?"P":p.kind==="sigmet"?"S":p.kind==="nws"?"!":p.hazard==="ICE"?"I":"T";
+      var icon=p.kind==="metar"?p.category==="UNKNOWN"?"?":p.category:p.kind==="pirep"?"P":p.kind==="sigmet"?"S":p.kind==="nws"?"!":p.kind==="observation"?"O":p.hazard==="ICE"?"I":"T";
       var marker=L.marker(center(f),{pane:"weatherMarkers",icon:L.divIcon({className:"wx-marker",html:'<span class="wx-dot '+(bad?"wx-hazard":"wx-caution")+'" style="--wx-color:'+color+'">'+esc(icon)+'</span>',iconSize:[32,32],iconAnchor:[16,16]})}).bindPopup(popup(f));
       marker.bindTooltip(esc(p.title)+" · "+esc(label(p)),{direction:"top",offset:[0,-18]});
       add(marker);
@@ -162,15 +164,15 @@
     if(!route || !data) return;
     var now=Date.now();selected=select(data,route,now);
     var failures=SOURCE_NAMES.filter(function(k){return !usable(k);});
-    var isStale=stale(), badCount=selected.filter(function(f){return hazard(f,now)&&usable(f.properties.source);}).length;
+    var isStale=stale(), direct=usable("nws_observations")||usable("nws"), badCount=selected.filter(function(f){return hazard(f,now)&&usable(f.properties.source);}).length;
     status.className="wx-status"+(isStale||failures.length?" wx-status-warn":"");
-    status.textContent=isStale?"Published weather is "+Math.round(age(data.generated_at,now))+" minutes old. The background publishing job is delayed; current map weather is hidden. Automatic refresh will check again. Use official sources meanwhile.":failures.length?"Some feeds unavailable: "+failures.join(", ")+". Coverage is incomplete.":"Official feeds retrieved "+minutes(data.generated_at)+". Reports have individual validity times.";
+    status.textContent=isStale?(direct?"Partial live coverage: NWS observations/alerts update directly. AWC aviation snapshot is "+Math.round(age(data.generated_at,now))+" minutes old; expired aviation layers are hidden.":"Weather publishing is delayed and direct NWS data is unavailable. Current map weather is hidden; use official sources."):failures.filter(function(k){return k!=="nws_observations";}).length?"Some feeds unavailable; coverage is incomplete.":"Official feeds retrieved "+minutes(data.generated_at)+". Reports have individual validity times.";
     doc.getElementById("wxUpdated").textContent="Published "+utc(data.generated_at);
-    doc.getElementById("wxHazards").textContent=isStale?"Data stale":badCount+" hazard report"+(badCount===1?"":"s");
+    doc.getElementById("wxHazards").textContent=isStale?(direct?"Partial live coverage":"Data stale"):badCount+" hazard report"+(badCount===1?"":"s");
     doc.getElementById("wxScope").textContent=route.from.ident+" → "+route.to.ident+" · within 100 NM · all altitudes";
     doc.getElementById("wxSources").innerHTML=SOURCE_NAMES.map(function(k){var s=data.sources[k]||{url:"https://aviationweather.gov/"};return '<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(k.toUpperCase())+'</a><span class="'+(usable(k)?"wx-feed-ok":"wx-feed-bad")+'">'+(usable(k)?"Fetched":"Unavailable / old")+'</span>';}).join("");
     var unmapped=Object.keys(data.sources).reduce(function(n,k){return n+(data.sources[k].unmapped_count||0);},0);
-    doc.getElementById("wxCoverage").textContent="METARs & SIGMETs: worldwide. PIREPs: mainly US / North Atlantic. G-AIRMETs: CONUS. NWS: US surface alerts. "+unmapped+" feed reports lack mapped areas and are not placed on the map. No reports does not mean no hazards.";
+    doc.getElementById("wxCoverage").textContent=(data.sources.nws_observations?"Direct stations: "+(data.sources.nws_observations.count||0)+" current / "+(data.sources.nws_observations.requested||0)+" requested. ":"")+"Direct NWS observations cover selected US route stations, not all airports; O markers show observations, not derived flight categories. METARs & SIGMETs: worldwide. PIREPs: mainly US / North Atlantic. G-AIRMETs: CONUS. NWS: US surface alerts. "+unmapped+" feed reports lack mapped areas and are not placed on the map. No reports does not mean no hazards.";
     doc.querySelectorAll("[data-wx-filter]").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.wxFilter===chosen));});
     var shown=selected.filter(matches).sort(function(a,b){
       var bad=Number(hazard(b,now))-Number(hazard(a,now));
@@ -179,26 +181,38 @@
       return 0;
     });
     if(!shown.length){cards.innerHTML='<div class="wx-empty"><b>'+(isStale||failures.length?"Weather coverage incomplete":"No matching reports in this corridor")+'</b><p>Try another category or check the official sources. This is not an all-clear.</p></div>';}
-    else cards.innerHTML=shown.slice(0,40).map(function(f){var p=f.properties, bad=hazard(f,now), old=isStale||!usable(p.source)||p.kind==="metar"&&!current(f,now);return '<article class="wx-card '+(bad&&!old?"wx-card-hazard":"")+'"><div class="wx-card-top"><span class="wx-kind">'+esc(p.kind.toUpperCase())+'</span><span class="wx-tag '+(bad&&!old?"wx-tag-danger":"")+'">'+esc(old?"OLD / UNVERIFIED":label(p))+'</span></div><button type="button" class="wx-report-title" data-wx-report="'+esc(p.id)+'">'+esc(p.title)+'</button>'+summary(p)+'<details><summary>Original government report</summary><pre>'+esc(p.raw||"No raw text supplied")+'</pre></details></article>';}).join("")+(shown.length>40?'<p class="wx-footnote">Showing 40 of '+shown.length+' matching reports. Choose a category to narrow the list.</p>':"");
+    else cards.innerHTML=shown.slice(0,40).map(function(f){var p=f.properties, bad=hazard(f,now), old=!usable(p.source)||p.kind==="metar"&&!current(f,now);return '<article class="wx-card '+(bad&&!old?"wx-card-hazard":"")+'"><div class="wx-card-top"><span class="wx-kind">'+esc(p.kind.toUpperCase())+'</span><span class="wx-tag '+(bad&&!old?"wx-tag-danger":"")+'">'+esc(old?"OLD / UNVERIFIED":label(p))+'</span></div><button type="button" class="wx-report-title" data-wx-report="'+esc(p.id)+'">'+esc(p.title)+'</button>'+summary(p)+'<details><summary>Original government report</summary><pre>'+esc(p.raw||"No raw text supplied")+'</pre></details></article>';}).join("")+(shown.length>40?'<p class="wx-footnote">Showing 40 of '+shown.length+' matching reports. Choose a category to narrow the list.</p>':"");
     draw();
   }
   function update(){
     if(loading) return loading;
     refresh.disabled=true;status.textContent="Retrieving official weather snapshot…";
-    loading=fetch("weather-data/weather.json?t="+Math.floor(Date.now()/300000),{cache:"no-store",signal:AbortSignal.timeout(20000)}).then(function(r){if(!r.ok)throw new Error("Snapshot unavailable");return r.json();}).then(function(value){
-      if(value.version!==1||!value.sources||!Array.isArray(value.features)||time(value.generated_at)===null)throw new Error("Invalid snapshot");
-      data=value;render();
-    }).catch(function(){
-      data=null;clear();cards.innerHTML='<div class="wx-empty"><b>Weather data unavailable</b><p>The official snapshot could not be retrieved. Use the source links below; missing data is not clear weather.</p></div>';
-      status.className="wx-status wx-status-warn";status.textContent="Weather refresh failed. No weather markers are displayed.";
-      doc.getElementById("wxHazards").textContent="Unavailable";
-      doc.getElementById("wxUpdated").textContent="No current snapshot";
-      doc.getElementById("wxSources").innerHTML='<a href="https://aviationweather.gov/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a><a href="https://www.weather.gov/" target="_blank" rel="noopener">National Weather Service</a>';
-    }).finally(function(){refresh.disabled=false;loading=null;});
+    loading=(async function(){
+      try{
+        var r=await fetch("weather-data/weather.json?t="+Math.floor(Date.now()/60000),{cache:"no-store",signal:AbortSignal.timeout(20000)});
+        if(!r.ok)throw new Error("Snapshot unavailable");
+        var value=await r.json();
+        if(value.version!==1||!value.sources||!Array.isArray(value.features)||time(value.generated_at)===null)throw new Error("Invalid snapshot");
+        data=value;
+      }catch(e){
+        // Retain source timestamps, so a transient fetch failure cannot make old data fresh.
+        if(!data)data={version:1,generated_at:"1970-01-01T00:00:00Z",sources:{},features:[]};
+      }
+      if(route&&root.WeatherLive&&(stale()||!usable("nws"))){
+        var points=routePoints(route);
+        var nearby=data.features.filter(function(f){return f.properties.kind==="metar"&&nearRoute(f.geometry,points,CORRIDOR);});
+        try{
+          var live=await root.WeatherLive.load(route,nearby);
+          Object.assign(data.sources,live.sources);
+          data.features=data.features.filter(function(f){return f.properties.source!=="nws"&&f.properties.source!=="nws_observations";}).concat(live.features);
+        }catch(e){ /* Original product timestamps still control expiry. */ }
+      }
+      render();
+    })().finally(function(){refresh.disabled=false;loading=null;});
     return loading;
   }
   doc.querySelectorAll("[data-wx-filter]").forEach(function(b){b.addEventListener("click",function(){chosen=b.dataset.wxFilter;render();});});
-  cards.addEventListener("click",function(e){var button=e.target.closest("[data-wx-report]");if(!button||!map||stale())return;var feature=selected.find(function(f){return f.properties.id===button.dataset.wxReport;});if(feature){map.setView(center(feature),Math.max(6,map.getZoom()));L.popup().setLatLng(center(feature)).setContent(popup(feature)).openOn(map);}});
+  cards.addEventListener("click",function(e){var button=e.target.closest("[data-wx-report]");if(!button||!map||!data)return;var feature=selected.find(function(f){return f.properties.id===button.dataset.wxReport;});if(feature&&usable(feature.properties.source)){map.setView(center(feature),Math.max(6,map.getZoom()));L.popup().setLatLng(center(feature)).setContent(popup(feature)).openOn(map);}});
   refresh.addEventListener("click",update);
   root.PlannerWeather={getMetar:function(station){
     var ready=data?Promise.resolve():update();
