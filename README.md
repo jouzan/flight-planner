@@ -67,9 +67,17 @@ and unknown codes stay visible without invented translations. Pick another route
 airport or enter a reporting-station ICAO. No nearby station is silently substituted
 if an airport has no METAR. Old observations/snapshots are marked unverified.
 
-LiveATC opens the selected airport's external feed directory in a new tab.
-Feed availability and listening access depend on LiveATC; this app does not scrape,
-embed, rehost, authenticate to or automatically play its audio streams.
+The Tower / LiveATC control shows all loaded tower frequencies first. For KPHX
+and KLAS, manually checked tower-specific links open the provider's HTML5 player
+directly, avoiding the directory's popup-based listen controls. Choose a channel
+and press Play on LiveATC. Checked player mappings are not live availability checks.
+For other airports, the UI explicitly says a direct tower link is unverified and
+offers the external directory. No audio destination is invented from an ICAO code.
+The app does not embed, rehost, authenticate to or automatically play audio streams;
+LiveATC's site states that its streams may not be used in third-party products.
+Radio frequencies come from the loaded airport dataset, not a real-time operational
+frequency assignment. Verify current charts and NOTAMs. A listed tower frequency
+does not establish that an online audio feed exists.
 
 Drag the divider between map and weather panel to resize it, or focus the divider
 and use the arrow keys. Double-click resets its width. Width is remembered locally;

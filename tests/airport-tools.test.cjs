@@ -26,3 +26,14 @@ test('raw remarks are preserved without pretending to fully translate them',()=>
 test('LiveATC link targets the selected airport and encodes its input',()=>{
   assert.equal(tools.atcUrl(' kphx '),'https://www.liveatc.net/search/?icao=KPHX');assert.equal(new URL(tools.atcUrl('KPHX&evil=1')).searchParams.size,1);
 });
+test('only checked tower players receive direct player links, never invented airport mounts',()=>{
+  const phx=tools.towerPlayers('KPHX'),las=tools.towerPlayers('klas');
+  assert.equal(phx[0].url,'https://www.liveatc.net/hlisten.php?mount=kphx_twr_both&icao=kphx');
+  assert.equal(las[0].url,'https://www.liveatc.net/hlisten.php?mount=klas4_twr&icao=klas');
+  assert.deepEqual(tools.towerPlayers('US-2648'),[]);
+  assert(phx.every(p=>p.name.startsWith('Tower')));
+});
+test('radio table places all tower channels first and excludes invalid frequencies',()=>{
+  const rows=tools.radioRows([{type:'ATIS',mhz:127.575},{type:'TWR',mhz:120.9},{type:'GND',mhz:119.75},{type:'TWR',mhz:118.7},{type:'TWR',mhz:null}]);
+  assert.deepEqual(rows.slice(0,2).map(f=>f.mhz),[118.7,120.9]);assert.equal(rows.length,4);
+});

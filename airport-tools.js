@@ -46,10 +46,25 @@
     return rows;
   }
   function atcUrl(station){return 'https://www.liveatc.net/search/?icao='+encodeURIComponent(String(station||'').trim().toUpperCase());}
-  if(typeof module!=="undefined"&&module.exports)module.exports={decode:decode,weatherEnglish:weatherEnglish,atcUrl:atcUrl};
+  // Provider player destinations checked in LiveATC's public airport listings.
+  // These are outbound player-page links, never embedded/rehosted audio streams.
+  var VERIFIED_TOWERS={
+    KPHX:[{name:'Tower · North + South',mount:'kphx_twr_both',frequencies:'118.700 / 120.900 MHz'},
+      {name:'Tower · North / runway 8–26',mount:'kphx_twr_n',frequencies:'118.700 MHz'},
+      {name:'Tower · South / runways 7–25',mount:'kphx_twr_s',frequencies:'120.900 MHz'}],
+    KLAS:[{name:'Tower · Both runway groups',mount:'klas4_twr',frequencies:'118.750 / 119.900 MHz'},
+      {name:'Tower · Runways 01–19',mount:'klas4_twr_0119',frequencies:'118.750 MHz'},
+      {name:'Tower · Runways 08–26',mount:'klas4_twr_0826',frequencies:'119.900 MHz'}]
+  };
+  function towerPlayers(station){var code=String(station||'').trim().toUpperCase();return (VERIFIED_TOWERS[code]||[]).map(function(p){return {name:p.name,frequencies:p.frequencies,url:'https://www.liveatc.net/hlisten.php?mount='+encodeURIComponent(p.mount)+'&icao='+encodeURIComponent(code.toLowerCase())};});}
+  function radioRows(list){
+    var priority={TWR:0,GND:1,ATIS:2,'D-ATIS':2,CTAF:3,UNIC:3,APP:4,DEP:4};
+    return (list||[]).filter(function(f){return Object.hasOwn(priority,f.type)&&present(f.mhz)&&Number(f.mhz)>0;}).slice().sort(function(a,b){return priority[a.type]-priority[b.type]||Number(a.mhz)-Number(b.mhz);});
+  }
+  if(typeof module!=="undefined"&&module.exports)module.exports={decode:decode,weatherEnglish:weatherEnglish,atcUrl:atcUrl,towerPlayers:towerPlayers,radioRows:radioRows};
   if(!root.document)return;
   var doc=root.document,dialog=doc.getElementById("airportDialog"),content=doc.getElementById("airportDialogContent"),picker=doc.getElementById("metarAirport"),station=doc.getElementById("metarStation");
-  var plan=null,map=null,mode="metar",request=0,observer=null,drag=null;
+  var plan=null,map=null,mode="metar",request=0,observer=null,drag=null,radioLookup=function(){return [];};
   var main=doc.querySelector("main"),panel=doc.getElementById("weatherPanel"),handle=doc.getElementById("wxResize"),leftHandle=doc.getElementById("airportResize"),toggle=doc.getElementById("toggleWeather");
   var airportPanel=doc.getElementById("airportPanel"),trackToggle=doc.getElementById("toggleTrackMenu"),widthSlider=doc.getElementById("airportWidthSlider"),widthValue=doc.getElementById("airportWidthValue");
   var narrow=root.matchMedia("(max-width:860px)"),airportOpen=!narrow.matches;
@@ -67,7 +82,13 @@
     if(!/^[A-Z0-9-]{2,8}$/.test(code)){content.innerHTML='<p class="airport-message">Enter a reporting station code such as KPHX.</p>';return;}
     station.value=code;picker.value=code;
     if(mode==="atc"){
-      content.innerHTML='<section class="atc-launch"><div class="atc-icon" aria-hidden="true">◉</div><h3>'+esc(code)+' live ATC radio</h3><p>Open this airport’s LiveATC listing to choose available tower, ground, approach or ATIS feeds and start listening.</p><a class="atc-listen" href="'+esc(atcUrl(code))+'" target="_blank" rel="noopener">Open '+esc(code)+' on LiveATC ↗</a><p class="atc-note">LiveATC is an external service. Coverage, feed status and listening access vary by airport. No audio starts automatically.</p></section>';return;
+      var radios=radioRows(radioLookup(code)),towers=radios.filter(function(f){return f.type==='TWR';}),players=towerPlayers(code);
+      content.innerHTML='<section class="tower-radio"><span class="wx-eyebrow">'+esc(code)+' · TOWER FIRST</span><h3>Tower radio frequencies</h3>'+
+        (towers.length?'<div class="tower-frequencies">'+towers.map(function(f){return '<div><strong>'+Number(f.mhz).toFixed(3)+' <small>MHz</small></strong><span>'+esc(f.description||'Tower')+'</span></div>';}).join('')+'</div>':'<p class="airport-message">No tower frequency was found for '+esc(code)+' in the loaded airport data. This does not confirm whether the airport is towered.</p>')+
+        '<p class="atc-note">Published radio frequencies, not audio streams. Verify the current chart / Chart Supplement and NOTAMs before use.</p></section>'+
+        '<section class="tower-audio"><h3>Listen to tower audio</h3>'+(players.length?'<p>Choose a tower channel below. The direct LiveATC player opens in a new tab; press its <b>▶ Play</b> button.</p><div class="tower-players">'+players.map(function(p){return '<a class="tower-player" href="'+esc(p.url)+'" target="_blank" rel="noopener"><span><b>'+esc(p.name)+'</b><small>'+esc(p.frequencies)+'</small></span><strong>Open player ↗</strong></a>';}).join('')+'</div><p class="atc-note">Player destinations checked November 2, 2026. Stream availability may change; this app does not monitor provider feed status.</p>':'<p class="airport-message">No direct tower-player link has been verified for '+esc(code)+'. A tower frequency does not guarantee an online audio feed.</p>')+
+        '<a class="airport-source" href="'+esc(atcUrl(code))+'" target="_blank" rel="noopener">Check all '+esc(code)+' feeds on LiveATC ↗</a><p class="atc-note">Audio plays on LiveATC, not inside this app. The provider may display a browser security check. Coverage varies by airport.</p></section>'+
+        (radios.length?'<details class="other-radios"><summary>All loaded airport radio frequencies</summary><div class="metar-table-wrap"><table class="metar-table"><thead><tr><th>Service</th><th>Frequency</th><th>Description</th></tr></thead><tbody>'+radios.map(function(f){return '<tr><th>'+esc(f.type)+'</th><td>'+Number(f.mhz).toFixed(3)+' MHz</td><td>'+esc(f.description||'')+'</td></tr>';}).join('')+'</tbody></table></div></details>':'');return;
     }
     content.innerHTML='<p class="airport-message">Loading '+esc(code)+' observation…</p>';
     try{
@@ -85,9 +106,10 @@
   }
   function open(nextMode,code){
     mode=nextMode;code=code||(plan&&plan.from.ident)||"KPHX";fillPicker(code);
-    doc.getElementById("airportDialogTitle").textContent=mode==="atc"?"Live airport radio":"METAR in plain English";
-    doc.getElementById("airportDialogEyebrow").textContent=mode==="atc"?"LIVEATC · AIRPORT FEED DIRECTORY":"NOAA / AWC · AIRPORT OBSERVATION";
-    doc.getElementById("loadMetar").textContent=mode==="atc"?"Find feeds":"Show";
+    doc.getElementById("airportDialogTitle").textContent=mode==="atc"?"Tower radio & audio":"METAR in plain English";
+    doc.getElementById("airportDialogEyebrow").textContent=mode==="atc"?"AIRPORT TOWER · LIVEATC PLAYER LINKS":"NOAA / AWC · AIRPORT OBSERVATION";
+    doc.getElementById("loadMetar").textContent="Show";
+    doc.querySelector('label[for="metarStation"]').textContent=mode==="atc"?"Or airport ICAO":"Or reporting station ICAO";
     if(!dialog.open)dialog.showModal();show();
   }
   function resize(value,save){
@@ -136,6 +158,7 @@
   doc.getElementById("loadMetar").addEventListener("click",show);
   station.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();show();}});
   doc.addEventListener("click",function(e){var button=e.target.closest("[data-airport-metar]");if(button)open("metar",button.dataset.airportMetar);});
+  doc.addEventListener("click",function(e){var button=e.target.closest("[data-airport-atc]");if(button)open("atc",button.dataset.airportAtc);});
   toggle.addEventListener("click",function(){panel.hidden=!panel.hidden;main.classList.toggle("weather-collapsed",panel.hidden);toggle.textContent=panel.hidden?"Show weather":"Hide weather";toggle.setAttribute("aria-expanded",String(!panel.hidden));resize(width,false);});
   function startDrag(e,side,grip){if(e.button!==0)return;e.preventDefault();e.stopPropagation();drag={pointer:e.pointerId,side:side,restore:!!(map&&map.dragging.enabled())};grip.setPointerCapture(e.pointerId);if(drag.restore)map.dragging.disable();main.classList.add("weather-resizing");}
   function moveDrag(e){if(drag&&e.pointerId===drag.pointer){var bounds=main.getBoundingClientRect();if(drag.side==="left")resizeLeft(e.clientX-bounds.left,true);else resize(bounds.right-e.clientX,true);}}
@@ -150,5 +173,5 @@
   leftHandle.addEventListener("dblclick",function(){resizeLeft(320,true);});
   leftHandle.addEventListener("keydown",function(e){if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();resizeLeft(e.key==="Home"?260:e.key==="End"?680:leftWidth+(e.key==="ArrowRight"?30:-30),true);});
   root.addEventListener("resize",function(){resize(width,false);});
-  root.AirportTools={setRoute:function(nextMap,nextPlan){map=nextMap;plan=nextPlan;if(map&&!observer){observer=new ResizeObserver(function(){map.invalidateSize({pan:false,animate:false});});observer.observe(doc.getElementById("map"));}if(dialog.open){fillPicker(station.value||(plan&&plan.from.ident)||"KPHX");show();}resize(width,false);}};
+  root.AirportTools={setRoute:function(nextMap,nextPlan,lookup){map=nextMap;plan=nextPlan;if(lookup)radioLookup=lookup;if(map&&!observer){observer=new ResizeObserver(function(){map.invalidateSize({pan:false,animate:false});});observer.observe(doc.getElementById("map"));}if(dialog.open){fillPicker(station.value||(plan&&plan.from.ident)||"KPHX");show();}resize(width,false);}};
 })(typeof window!=="undefined"?window:globalThis);
