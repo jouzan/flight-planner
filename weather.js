@@ -164,7 +164,7 @@
     var failures=SOURCE_NAMES.filter(function(k){return !usable(k);});
     var isStale=stale(), badCount=selected.filter(function(f){return hazard(f,now)&&usable(f.properties.source);}).length;
     status.className="wx-status"+(isStale||failures.length?" wx-status-warn":"");
-    status.textContent=isStale?"Weather snapshot is stale. Refresh or check official sources; map weather hidden.":failures.length?"Some feeds unavailable: "+failures.join(", ")+". Coverage is incomplete.":"Official feeds retrieved "+minutes(data.generated_at)+". Reports have individual validity times.";
+    status.textContent=isStale?"Published weather is "+Math.round(age(data.generated_at,now))+" minutes old. The background publishing job is delayed; current map weather is hidden. Automatic refresh will check again. Use official sources meanwhile.":failures.length?"Some feeds unavailable: "+failures.join(", ")+". Coverage is incomplete.":"Official feeds retrieved "+minutes(data.generated_at)+". Reports have individual validity times.";
     doc.getElementById("wxUpdated").textContent="Published "+utc(data.generated_at);
     doc.getElementById("wxHazards").textContent=isStale?"Data stale":badCount+" hazard report"+(badCount===1?"":"s");
     doc.getElementById("wxScope").textContent=route.from.ident+" → "+route.to.ident+" · within 100 NM · all altitudes";
@@ -212,6 +212,6 @@
     if(!route){cards.innerHTML='<div class="wx-empty">Plan a valid route to see nearby reports.</div>';doc.getElementById("wxScope").textContent="No route selected";doc.getElementById("wxHazards").textContent="No route";return;}
     if(!map.getPane("weatherAreas")){map.createPane("weatherAreas").style.zIndex=360;map.createPane("weatherMarkers").style.zIndex=460;}
     if(data)render();else update();
-    if(!timer){timer=setInterval(update,300000);setInterval(function(){if(data)render();},60000);}
+    if(!timer){timer=setInterval(update,60000);setInterval(function(){if(data)render();},60000);}
   }};
 })(typeof window!=="undefined"?window:globalThis);

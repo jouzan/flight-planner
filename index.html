@@ -119,8 +119,8 @@
     .grid,.stats{grid-template-columns:1fr}
   }
 </style>
-<link rel="stylesheet" href="weather.css?v=track-menu-3">
-<link rel="stylesheet" href="airport-tools.css?v=tower-audio-4">
+<link rel="stylesheet" href="weather.css?v=weather-refresh-5">
+<link rel="stylesheet" href="airport-tools.css?v=weather-refresh-5">
 </head>
 <body>
 <div class="app">
@@ -179,7 +179,7 @@
     <section class="map-wrap" aria-label="Route map">
       <div id="map"></div>
       <div id="airportResize" class="wx-resize airport-resize" role="separator" tabindex="0" aria-label="Resize airport panel. Drag right to expand, or use left and right arrow keys." aria-controls="airportPanel" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="680" aria-valuenow="320" title="Drag right to expand airport panel; double-click to reset"><span>↔</span></div>
-      <div class="airport-map-tools" aria-label="Airport tools"><button type="button" id="toggleTrackMenu" aria-expanded="true" aria-controls="airportPanel">☰ Track menu</button><button type="button" id="openMetar">METAR table</button><button type="button" id="openAtc">LiveATC ↗</button><button type="button" id="toggleWeather" aria-expanded="true" aria-controls="weatherPanel">Hide weather</button></div>
+      <div class="airport-map-tools" aria-label="Airport tools"><button type="button" id="toggleTrackMenu" aria-expanded="true" aria-controls="airportPanel">☰ Track menu</button><button type="button" id="openMetar">METAR table</button><button type="button" id="toggleWeather" aria-expanded="true" aria-controls="weatherPanel">Hide weather</button></div>
       <div id="wxResize" class="wx-resize" role="separator" tabindex="0" aria-label="Resize weather panel. Use left and right arrow keys." aria-orientation="vertical" aria-valuemin="260" aria-valuemax="600" aria-valuenow="330" title="Drag to resize weather panel; double-click to reset"><span></span></div>
       <div class="map-key">
         <div class="key-line"><span class="key-ring blue"></span><span>Controlled estimate</span></div>
@@ -190,10 +190,11 @@
       </div>
     </section>
     <aside class="weather-panel" id="weatherPanel" aria-label="Government aviation weather">
-      <div class="wx-heading"><div><span class="wx-eyebrow">NOAA / NATIONAL WEATHER SERVICE</span><h2>Aviation weather</h2></div><button class="wx-refresh" id="wxRefresh" type="button" aria-label="Refresh weather" title="Refresh published weather">↻</button></div>
+      <div class="wx-heading"><div><span class="wx-eyebrow">NOAA / NATIONAL WEATHER SERVICE</span><h2>Aviation weather</h2></div><button class="wx-refresh" id="wxRefresh" type="button" aria-label="Refresh weather" title="Reload the latest published weather snapshot">↻</button></div>
       <p class="wx-scope" id="wxScope">Plan a route to see nearby reports.</p>
       <div class="wx-summary"><strong id="wxHazards">Waiting for data</strong><span id="wxUpdated">Government reports</span></div>
       <p class="wx-status" id="wxStatus" role="status" aria-live="polite">Retrieving official weather snapshot…</p>
+      <p class="wx-footnote">Weather refresh is scheduled every 5 minutes. Publishing can be delayed. The ↻ button reloads the latest published snapshot.</p>
       <div class="wx-filters" role="group" aria-label="Weather report categories">
         <button type="button" class="wx-filter" data-wx-filter="all" aria-pressed="true">All</button>
         <button type="button" class="wx-filter" data-wx-filter="clouds" aria-pressed="false">Clouds / ceiling</button>
@@ -217,8 +218,8 @@
 </dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="weather.js?v=track-menu-3"></script>
-<script src="airport-tools.js?v=tower-audio-4"></script>
+<script src="weather.js?v=weather-refresh-5"></script>
+<script src="airport-tools.js?v=weather-refresh-5"></script>
 <script>
 (function(){
   "use strict";
@@ -461,7 +462,7 @@
     return '<div class="airport"><h3>' + esc(heading) + ' ' + codeOf(a) + '</h3>' +
       '<p><b>' + esc(a.name) + '</b></p>' +
       '<p>' + esc([a.city, a.country].filter(Boolean).join(", ")) + '</p>' +
-      '<div class="airport-card-tools"><button type="button" data-airport-metar="'+esc(a.ident)+'">METAR / English</button><button type="button" data-airport-atc="'+esc(a.ident)+'">Tower / LiveATC</button></div>' +
+      '<div class="airport-card-tools"><button type="button" data-airport-metar="'+esc(a.ident)+'">METAR / English</button></div>' +
       '<div class="airport-meta">' +
       '<div class="mini"><span class="k">Field elevation</span><span class="v">' + feet(a.elevation) + '</span></div>' +
       '<div class="mini"><span class="k">Downwind MSL</span><span class="v">' + feet(patternAltitude(a)) + '</span></div>' +
